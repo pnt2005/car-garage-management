@@ -4,11 +4,170 @@ generator client {
 
 datasource db {
   provider = "mysql"
-  url = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
 
-model PhieuSuaChua {
-    maPhieu Int @id @default(autoincrement())
-    ngaySuaChua DateTime @default(now())
-    thanhTien Float
+model CHUXE {
+  MaChuXe   Int    @id @default(autoincrement())
+  TenChuXe  String
+  DiaChi    String
+  DienThoai String
+  TienNo    Float
+  Email     String
+
+  // Quan hệ ngược
+  PhieuThu PHIEUTHUTIEN[]
+  TiepNhan TIEPNHANXESUA[]
+}
+
+model HIEUXE {
+  MaHieuXe  Int    @id @default(autoincrement())
+  TenHieuXe String
+
+  // Quan hệ ngược
+  TiepNhanXeSua        TIEPNHANXESUA[]
+  ChiTietBaoCaoDoanhSo CHITIETBAOCAODOANHSO[]
+}
+
+model PHIEUTHUTIEN {
+  MaPhieuThu  Int      @id @default(autoincrement())
+  NgayThuTien DateTime
+  SoTienThu   Float
+
+  MaChuXe Int
+  ChuXe   CHUXE @relation(fields: [MaChuXe], references: [MaChuXe])
+
+  MaTiepNhan Int
+  TiepNhan   TIEPNHANXESUA @relation(fields: [MaTiepNhan], references: [MaTiepNhan])
+}
+
+model TIEPNHANXESUA {
+  MaTiepNhan   Int      @id @default(autoincrement())
+  MaChuXe      Int
+  MaHieuXe     Int
+  NgayTiepNhan DateTime
+  BienSo       String
+
+  HieuXe   HIEUXE         @relation(fields: [MaHieuXe], references: [MaHieuXe])
+  ChuXe    CHUXE          @relation(fields: [MaChuXe], references: [MaChuXe])
+  // Quan hệ ngược
+  PhieuThu PHIEUTHUTIEN[]
+  PhieuSuaChua PHIEUSUACHUA[]
+}
+
+model PHIEUSUACHUA {
+  MaPhieu       Int      @id @default(autoincrement())
+  NgaySuaChua   DateTime
+  TongThanhTien Float
+  MaTiepNhan    Int
+  // Quan hệ ngược
+  ChiTietPhieu CHITIETPHIEU[]
+  TiepNhanXeSua TIEPNHANXESUA @relation(fields: [MaTiepNhan], references: [MaTiepNhan])
+}
+
+model CHITIETPHIEU {
+  MaChiTietPhieu Int    @id @default(autoincrement())
+  NoiDung        String
+  SoLuong        Int
+  DonGia         Float
+
+  MaPhuTung Int
+  PhuTung   PHUTUNG @relation(fields: [MaPhuTung], references: [MaPhuTung])
+
+  MaTienCong Int
+  TienCong   TIENCONG @relation(fields: [MaTienCong], references: [MaTienCong])
+
+  MaPhieu      Int
+  PhieuSuaChua PHIEUSUACHUA @relation(fields: [MaPhieu], references: [MaPhieu])
+}
+
+model PHUTUNG {
+  MaPhuTung  Int    @id @default(autoincrement())
+  TenPhuTung String
+  DonGia     Float
+
+  // Quan hệ ngược
+  ChiTietPhieu CHITIETPHIEU[]
+  ChiTietTon   CHITIETBAOCAOTON[]
+  ChiTietNhap  CHITIETNHAPPHUTUNG[]
+}
+
+model TIENCONG {
+  MaTienCong  Int    @id @default(autoincrement())
+  TenTienCong String
+  GiaTienCong Float
+
+  // Quan hệ ngược
+  ChiTietPhieu CHITIETPHIEU[]
+}
+
+model BAOCAODOANHSO {
+  MaBaoCaoDoanhSo Int   @id @default(autoincrement())
+  Thang           Int
+  TongDoanhThu    Float
+
+  // 1 BAOCAODOANHSO có nhiều CHITIETBAOCAODOANHSO
+  ChiTietBaoCaoDoanhSo CHITIETBAOCAODOANHSO[]
+}
+
+model CHITIETBAOCAODOANHSO {
+  MaChiTietBaoCaoDoanhSo Int   @id @default(autoincrement())
+  MaHieuXe               Int
+  SoLuotSua              Int
+  DoanhThu               Float
+  TiLe                   Float
+
+  // FK
+  MaBaoCaoDoanhSo Int
+  BaoCaoDoanhSo   BAOCAODOANHSO @relation(fields: [MaBaoCaoDoanhSo], references: [MaBaoCaoDoanhSo])
+  HieuXe          HIEUXE        @relation(fields: [MaHieuXe], references: [MaHieuXe])
+}
+
+model BAOCAOTON {
+  MaBaoCaoTon Int @id @default(autoincrement())
+  Thang       Int
+
+  ChiTietBaoCaoTon CHITIETBAOCAOTON[]
+}
+
+model CHITIETBAOCAOTON {
+  MaChiTietBaoCao Int @id @default(autoincrement())
+  TonDau          Int
+  PhatSinh        Int
+  TonCuoi         Int
+
+  MaBaoCaoTon Int
+  BaoCaoTon   BAOCAOTON @relation(fields: [MaBaoCaoTon], references: [MaBaoCaoTon])
+
+  // FK đến bảng Phụ Tùng nếu có
+  MaPhuTung Int
+  PhuTung   PHUTUNG @relation(fields: [MaPhuTung], references: [MaPhuTung])
+}
+
+model NHAPPHUTUNG {
+  MaNhapPhuTung Int      @id @default(autoincrement())
+  NgayNhap      DateTime
+  TongTienNhap  Float
+
+  // Quan hệ ngược
+  ChiTietNhap CHITIETNHAPPHUTUNG[]
+}
+
+model CHITIETNHAPPHUTUNG {
+  MaChiTietNhap Int   @id @default(autoincrement())
+  SoLuong       Int
+  DonGia        Float
+  TongDonGia    Float
+
+  MaNhapPhuTung Int
+  NhapPhuTung   NHAPPHUTUNG @relation(fields: [MaNhapPhuTung], references: [MaNhapPhuTung])
+
+  MaPhuTung Int
+  PhuTung   PHUTUNG @relation(fields: [MaPhuTung], references: [MaPhuTung])
+}
+
+model THAM_SO {
+  id            Int   @id @default(1)
+  TiepNhanToiDa Int
+  ThuVuotQuaNo  Float
 }
