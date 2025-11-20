@@ -30,43 +30,43 @@ model HIEUXE {
 }
 
 model PHIEUTHUTIEN {
-  MaPhieuThu  Int      @id @default(autoincrement())
+  MaPhieuThuTien  Int      @id @default(autoincrement())
   NgayThuTien DateTime
   SoTienThu   Float
 
   MaChuXe Int
   ChuXe   CHUXE @relation(fields: [MaChuXe], references: [MaChuXe])
 
-  MaTiepNhan Int
-  TiepNhan   TIEPNHANXESUA @relation(fields: [MaTiepNhan], references: [MaTiepNhan])
+  MaTiepNhanXeSua Int
+  TiepNhanXeSua   TIEPNHANXESUA @relation(fields: [MaTiepNhanXeSua], references: [MaTiepNhanXeSua])
 }
 
 model TIEPNHANXESUA {
-  MaTiepNhan   Int      @id @default(autoincrement())
+  MaTiepNhanXeSua   Int      @id @default(autoincrement())
   MaChuXe      Int
   MaHieuXe     Int
-  NgayTiepNhan DateTime
+  NgayTiepNhanXeSua DateTime
   BienSo       String
 
   HieuXe   HIEUXE         @relation(fields: [MaHieuXe], references: [MaHieuXe])
   ChuXe    CHUXE          @relation(fields: [MaChuXe], references: [MaChuXe])
   // Quan hệ ngược
-  PhieuThu PHIEUTHUTIEN[]
+  PhieuThuTien PHIEUTHUTIEN[]
   PhieuSuaChua PHIEUSUACHUA[]
 }
 
 model PHIEUSUACHUA {
-  MaPhieu       Int      @id @default(autoincrement())
+  MaPhieuSuaChua       Int      @id @default(autoincrement())
   NgaySuaChua   DateTime
   TongThanhTien Float
-  MaTiepNhan    Int
+  MaTiepNhanXeSua    Int
   // Quan hệ ngược
-  ChiTietPhieu CHITIETPHIEU[]
-  TiepNhanXeSua TIEPNHANXESUA @relation(fields: [MaTiepNhan], references: [MaTiepNhan])
+  ChiTietPhieuSuaChua CHITIETPHIEUSUACHUA[]
+  TiepNhanXeSua TIEPNHANXESUA @relation(fields: [MaTiepNhanXeSua], references: [MaTiepNhanXeSua])
 }
 
-model CHITIETPHIEU {
-  MaChiTietPhieu Int    @id @default(autoincrement())
+model CHITIETPHIEUSUACHUA {
+  MaChiTietPhieuSuaChua Int    @id @default(autoincrement())
   NoiDung        String
   SoLuong        Int
   DonGia         Float
@@ -77,8 +77,8 @@ model CHITIETPHIEU {
   MaTienCong Int
   TienCong   TIENCONG @relation(fields: [MaTienCong], references: [MaTienCong])
 
-  MaPhieu      Int
-  PhieuSuaChua PHIEUSUACHUA @relation(fields: [MaPhieu], references: [MaPhieu])
+  MaPhieuSuaChua      Int
+  PhieuSuaChua PHIEUSUACHUA @relation(fields: [MaPhieuSuaChua], references: [MaPhieuSuaChua])
 }
 
 model PHUTUNG {
@@ -87,9 +87,9 @@ model PHUTUNG {
   DonGia     Float
 
   // Quan hệ ngược
-  ChiTietPhieu CHITIETPHIEU[]
+  ChiTietPhieuSuaChua CHITIETPHIEUSUACHUA[]
   ChiTietTon   CHITIETBAOCAOTON[]
-  ChiTietNhap  CHITIETNHAPPHUTUNG[]
+  ChiTietNhapPhuTung  CHITIETNHAPPHUTUNG[]
 }
 
 model TIENCONG {
@@ -98,7 +98,7 @@ model TIENCONG {
   GiaTienCong Float
 
   // Quan hệ ngược
-  ChiTietPhieu CHITIETPHIEU[]
+  ChiTietPhieuSuaChua CHITIETPHIEUSUACHUA[]
 }
 
 model BAOCAODOANHSO {
@@ -114,7 +114,7 @@ model CHITIETBAOCAODOANHSO {
   MaChiTietBaoCaoDoanhSo Int   @id @default(autoincrement())
   MaHieuXe               Int
   SoLuotSua              Int
-  DoanhThu               Float
+  ThanhTien              Float
   TiLe                   Float
 
   // FK
@@ -131,7 +131,7 @@ model BAOCAOTON {
 }
 
 model CHITIETBAOCAOTON {
-  MaChiTietBaoCao Int @id @default(autoincrement())
+  MaChiTietBaoCaoTon Int @id @default(autoincrement())
   TonDau          Int
   PhatSinh        Int
   TonCuoi         Int
@@ -150,11 +150,11 @@ model NHAPPHUTUNG {
   TongTienNhap  Float
 
   // Quan hệ ngược
-  ChiTietNhap CHITIETNHAPPHUTUNG[]
+  ChiTietNhapPhuTung CHITIETNHAPPHUTUNG[]
 }
 
 model CHITIETNHAPPHUTUNG {
-  MaChiTietNhap Int   @id @default(autoincrement())
+  MaChiTietNhapPhuTung Int   @id @default(autoincrement())
   SoLuong       Int
   DonGia        Float
   TongDonGia    Float
