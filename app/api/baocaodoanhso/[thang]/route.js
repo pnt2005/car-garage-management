@@ -9,10 +9,11 @@ export async function GET(req, context) {
     const baoCao = await tinhDoanhThuTheoHieuXe(thang);
     return NextResponse.json({
       ChiTietBaoCaoDoanhSo: baoCao.chiTietBaoCaoDoanhSo || [],
+      TongDoanhThu: baoCao.tongDoanhThu || 0,
     });
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ error: "Lỗi khi xem báo cáo" }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 

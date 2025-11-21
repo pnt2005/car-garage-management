@@ -1,8 +1,14 @@
 import { prisma } from '@/app/lib/db.js';
 
 export async function tinhDoanhThuTheoHieuXe(thang) {
-  const namHienTai = new Date().getFullYear();
+  const baoCao = await prisma.bAOCAODOANHSO.findFirst({
+    where: { Thang: Number(thang) },
+  });
+  if (!baoCao) {
+    throw new Error("Báo cáo cho tháng này chưa có. Vui lòng lập báo cáo mới.");
+  }
 
+  const namHienTai = new Date().getFullYear();
   const hieuxes = await prisma.hIEUXE.findMany({
     include: {
       TiepNhanXeSua: {

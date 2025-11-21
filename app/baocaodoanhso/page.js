@@ -35,11 +35,15 @@ export default function BaoCaoDoanhSo() {
     try {
       const res = await fetch(`/api/baocaodoanhso/${thang}`);
       const data = await res.json();
+      if (!res.ok) {
+      setMessage(data.error);
+      setBaoCao(null);
+      return;
+    }
       setBaoCao(data);
-      console.log(baoCao);
     } catch (err) {
       console.error(err);
-      setMessage("Có lỗi xảy ra khi lấy dữ liệu");
+      setMessage(err.message);
     } finally {
       setLoading(false);
     }
@@ -81,26 +85,36 @@ export default function BaoCaoDoanhSo() {
       {message && <p className="mb-4 text-green-600">{message}</p>}
         
       {baoCao && (
-        <table className="w-full table-auto border border-gray-300">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border px-2 py-1">Hiệu xe</th>
-              <th className="border px-2 py-1">Số lượt sửa</th>
-              <th className="border px-2 py-1">Doanh thu</th>
-              <th className="border px-2 py-1">Tỷ lệ (%)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {baoCao.ChiTietBaoCaoDoanhSo?.map((ct) => (
-              <tr key={ct.MaChiTietBaoCaoDoanhSo}>
-                <td className="border px-2 py-1">{ct.TenHieuXe}</td>
-                <td className="border px-2 py-1 text-center">{ct.SoLuotSua}</td>
-                <td className="border px-2 py-1 text-right">{ct.ThanhTien.toLocaleString()}₫</td>
-                <td className="border px-2 py-1 text-center">{ct.TiLe.toFixed(2)}%</td>
+        <>
+          <div className="mb-4 p-3 border rounded bg-gray-50">
+            <p className="font-semibold">
+              Tổng doanh thu tháng {thang}:{" "}
+              <span className="text-blue-600">
+                {baoCao.TongDoanhThu?.toLocaleString()}₫
+              </span>
+            </p>
+          </div>
+          <table className="w-full table-auto border border-gray-300">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="border px-2 py-1">Hiệu xe</th>
+                <th className="border px-2 py-1">Số lượt sửa</th>
+                <th className="border px-2 py-1">Doanh thu</th>
+                <th className="border px-2 py-1">Tỷ lệ (%)</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {baoCao.ChiTietBaoCaoDoanhSo?.map((ct) => (
+                <tr key={ct.MaChiTietBaoCaoDoanhSo}>
+                  <td className="border px-2 py-1">{ct.TenHieuXe}</td>
+                  <td className="border px-2 py-1 text-center">{ct.SoLuotSua}</td>
+                  <td className="border px-2 py-1 text-right">{ct.ThanhTien.toLocaleString()}₫</td>
+                  <td className="border px-2 py-1 text-center">{ct.TiLe.toFixed(2)}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
       )}
     </div>
   );
