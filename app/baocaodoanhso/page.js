@@ -106,7 +106,7 @@ export default function BaoCaoDoanhSo() {
             <tbody>
               {baoCao.ChiTietBaoCaoDoanhSo?.map((ct) => (
                 <tr key={ct.MaChiTietBaoCaoDoanhSo}>
-                  <td className="border px-2 py-1">{ct.TenHieuXe}</td>
+                  <td className="border px-2 py-1">{ct.HieuXe.TenHieuXe}</td>
                   <td className="border px-2 py-1 text-center">{ct.SoLuotSua}</td>
                   <td className="border px-2 py-1 text-right">{ct.ThanhTien.toLocaleString()}₫</td>
                   <td className="border px-2 py-1 text-center">{ct.TiLe.toFixed(2)}%</td>
