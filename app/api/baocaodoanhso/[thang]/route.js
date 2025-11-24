@@ -1,30 +1,23 @@
 import { NextResponse } from "next/server";
-import { tinhDoanhThuTheoHieuXe } from "./tinhDoanhThuTheoHieuXe.js";
-import { lapBaoCao } from "./lapBaoCao.js";
+import { xemBaoCaoDoanhSo } from "./xemBaoCaoDoanhSo.js";
+import { lapBaoCaoDoanhSo } from "./lapBaoCaoDoanhSo.js";
 
 export async function GET(req, context) {
-  const params = await context.params;
-  const thang = parseInt(params.thang);
+  const { thang } = await context.params;
   try {
-    const baoCao = await tinhDoanhThuTheoHieuXe(thang);
-    return NextResponse.json({
-      ChiTietBaoCaoDoanhSo: baoCao.chiTietBaoCaoDoanhSo || [],
-      TongDoanhThu: baoCao.tongDoanhThu || 0,
-    });
+    const baoCao = await xemBaoCaoDoanhSo(Number(thang));
+    return NextResponse.json(baoCao);
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: 400 });
   }
 }
 
 export async function POST(req, context) {
-  const params = await context.params;
-  const thang = parseInt(params.thang);
+  const { thang } = await context.params;
   try {
-    const baoCao = await lapBaoCao(thang);
+    const baoCao = await lapBaoCaoDoanhSo(Number(thang));
     return NextResponse.json(baoCao);
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: "Lỗi khi lập báo cáo" }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

@@ -35,6 +35,11 @@ export default function BaoCaoTon() {
     try {
       const res = await fetch(`/api/baocaoton/${thang}`);
       const data = await res.json();
+      if (!res.ok) {
+        setMessage(data.error);
+        setBaoCao(null);
+        return;
+      }
       setBaoCao(data);
     } catch (err) {
       console.error(err);
@@ -93,7 +98,7 @@ export default function BaoCaoTon() {
             {baoCao.ChiTietBaoCaoTon?.map((ct) => (
               <tr key={ct.MaChiTietBaoCaoTon}>
                 <td className="border px-2 py-1">
-                  {ct.TenPhuTung}
+                  {ct.PhuTung.TenPhuTung}
                 </td>
                 <td className="border px-2 py-1 text-center">{ct.TonDau}</td>
                 <td className="border px-2 py-1 text-center">{ct.PhatSinh}</td>
