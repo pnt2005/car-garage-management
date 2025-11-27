@@ -5,9 +5,8 @@ export default function PhuTung() {
   const [phuTungs, setPhuTungs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
-  const [form, setForm] = useState({ MaPhuTung: "", TenPhuTung: "", DonGia: "" });
+  const [form, setForm] = useState({ TenPhuTung: "", DonGia: "" });
   const [editingId, setEditingId] = useState(null);
-  const [maConflict, setMaConflict] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -26,52 +25,61 @@ export default function PhuTung() {
 
   useEffect(() => { load(); }, []);
 
-  const onChange = (k, v) => {
-    setForm((s) => ({ ...s, [k]: v }));
-    if (k === "MaPhuTung") {
-      const exists = phuTungs.some(p => (p.MaPhuTung?.toString?.() || "") === v);
-      const editingMatch = editingId && editingId.toString() === v;
-      setMaConflict(!!(v && exists && !editingMatch));
-    }
-  };
+  const onChange = (k, v) => setForm((s) => ({ ...s, [k]: v }));
 
   const submit = async (e) => {
     e?.preventDefault();
-    if (maConflict) { setMsg('Mã đã tồn tại'); return; }
     setLoading(true); setMsg("");
     try {
       const isEditing = editingId !== null;
+      const donGiaValue = parseFloat(form.DonGia);
+      
+      if (!form.TenPhuTung?.trim()) {
+        setMsg('Vui lòng nhập tên phụ tùng');
+        setLoading(false);
+        return;
+      }
+      
+      if (isNaN(donGiaValue) || donGiaValue < 0) {
+        setMsg('Vui lòng nhập đơn giá hợp lệ');
+        setLoading(false);
+        return;
+      }
+      
       const body = isEditing
-        ? { MaPhuTung: editingId, TenPhuTung: (form.TenPhuTung || '').trim(), DonGia: parseFloat(form.DonGia) }
-        : (() => {
-            const o = { TenPhuTung: (form.TenPhuTung || '').trim(), DonGia: parseFloat(form.DonGia) };
-            if (form.MaPhuTung) o.MaPhuTung = form.MaPhuTung; // allow string shown client-side
-            return o;
-          })();
+        ? { MaPhuTung: editingId, TenPhuTung: form.TenPhuTung.trim(), DonGia: donGiaValue }
+        : { TenPhuTung: form.TenPhuTung.trim(), DonGia: donGiaValue };
 
+      console.log('Sending request:', { method: editingId ? 'PUT' : 'POST', body });
       const r = await fetch('/api/phutung', { method: editingId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const data = await r.json();
-      if (!r.ok) { setMsg(data.error || 'Lỗi'); return; }
+      console.log('Response:', { status: r.status, data });
+      
+      if (!r.ok) { 
+        setMsg(data.error || `Lỗi: ${r.status}`); 
+        setLoading(false);
+        return; 
+      }
 
-      setMsg(editingId ? 'Cập nhật thành công' : 'Thêm thành công');
-      // Update list (show entered MaPhuTung string immediately for new items)
-      if (editingId) setPhuTungs(p => p.map(x => x.MaPhuTung === editingId ? data : x));
-      else setPhuTungs(p => {
-        const d = { ...data };
-        if (form.MaPhuTung) d.MaPhuTung = form.MaPhuTung;
-        return [...p, d];
-      });
+      // Cập nhật danh sách
+      if (isEditing) {
+        setPhuTungs(p => p.map(x => x.MaPhuTung === editingId ? data : x));
+        setMsg('Cập nhật thành công');
+      } else {
+        // Thêm mới - reload lại toàn bộ danh sách để có order đúng
+        await load();
+        setMsg('Thêm thành công');
+      }
 
-      setForm({ MaPhuTung: "", TenPhuTung: "", DonGia: "" });
+      setForm({ TenPhuTung: "", DonGia: "" });
       setEditingId(null);
-      setMaConflict(false);
     } catch (e) {
-      console.error(e);
-      setMsg('Có lỗi xảy ra');
+      console.error('Submit error:', e);
+      setMsg('Có lỗi xảy ra: ' + e.message);
     } finally { setLoading(false); }
   };
 
-  const edit = (pt) => { setEditingId(pt.MaPhuTung); setForm({ MaPhuTung: pt.MaPhuTung?.toString?.() || '', TenPhuTung: pt.TenPhuTung, DonGia: pt.DonGia?.toString?.() || '' }); setMaConflict(false); };
+  const edit = (pt) => { setEditingId(pt.MaPhuTung); setForm({ TenPhuTung: pt.TenPhuTung, DonGia: pt.DonGia?.toString?.() || '' }); };
 
   const del = async (MaPhuTung) => {
     if (!confirm('Bạn có chắc muốn xóa?')) return;
@@ -83,7 +91,7 @@ export default function PhuTung() {
       const data = await r.json();
       if (!r.ok) { setMsg(data.error || 'Lỗi khi xóa'); setPhuTungs(prev); }
       else setMsg('Xóa thành công');
-      if (editingId === MaPhuTung) { setEditingId(null); setForm({ MaPhuTung: '', TenPhuTung: '', DonGia: '' }); }
+      if (editingId === MaPhuTung) { setEditingId(null); setForm({ TenPhuTung: '', DonGia: '' }); }
     } catch (e) { console.error(e); setMsg('Lỗi khi xóa'); setPhuTungs(prev); }
     finally { setLoading(false); }
   };
@@ -97,17 +105,11 @@ export default function PhuTung() {
       <section className="bg-white p-6 rounded-lg shadow-md mb-6">
         <h2 className="text-xl mb-3">{editingId ? 'Cập nhật' : 'Thêm'} phụ tùng</h2>
         <form onSubmit={submit} className="grid grid-cols-2 gap-4">
-          {!editingId && (
-            <div>
-              <input value={form.MaPhuTung} onChange={e => onChange('MaPhuTung', e.target.value)} className={`w-full p-2 border rounded ${maConflict ? 'border-red-500' : ''}`} placeholder="Nhập mã phụ tùng" />
-              {maConflict && <div className="text-red-600 text-sm">Mã đã tồn tại</div>}
-            </div>
-          )}
           <input required value={form.TenPhuTung} onChange={e => onChange('TenPhuTung', e.target.value)} placeholder="Tên phụ tùng" className="p-2 border rounded" />
           <input required type="number" min="0" step="1000" value={form.DonGia} onChange={e => onChange('DonGia', e.target.value)} placeholder="Đơn giá" className="p-2 border rounded" />
           <div className="col-span-2 flex gap-2">
-            <button type="submit" disabled={loading || maConflict} className="px-4 py-2 bg-blue-500 text-white rounded">{editingId ? 'Cập nhật' : 'Thêm'}</button>
-            {editingId && <button type="button" onClick={() => { setEditingId(null); setForm({ MaPhuTung: '', TenPhuTung: '', DonGia: '' }); setMaConflict(false); }} className="px-4 py-2 bg-gray-500 text-white rounded">Hủy</button>}
+            <button type="submit" disabled={loading} className="px-4 py-2 bg-blue-500 text-white rounded">{editingId ? 'Cập nhật' : 'Thêm'}</button>
+            {editingId && <button type="button" onClick={() => { setEditingId(null); setForm({ TenPhuTung: '', DonGia: '' }); }} className="px-4 py-2 bg-gray-500 text-white rounded">Hủy</button>}
           </div>
           {msg && <div className="col-span-2 text-green-600">{msg}</div>}
         </form>

@@ -2,17 +2,19 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/db.js";
 import { xoaPhuTung } from "./xoaPhuTung.js";
 
-// GET - Lấy danh sách phụ tùng
+// GET - Lập danh sách phụ tùng
 export async function GET() {
   try {
+    console.log('GET /api/phutung - Lập danh sách phụ tùng');
     const phuTungs = await prisma.pHUTUNG.findMany({
       orderBy: { MaPhuTung: "asc" },
     });
+    console.log('Found', phuTungs.length, 'phụ tùng');
     return NextResponse.json(phuTungs);
   } catch (error) {
-    console.error(error);
+    console.error('GET /api/phutung error:', error);
     return NextResponse.json(
-      { error: "Lỗi khi lấy danh sách phụ tùng" },
+      { error: "Lỗi khi lập danh sách phụ tùng: " + error.message },
       { status: 500 }
     );
   }
@@ -22,27 +24,41 @@ export async function GET() {
 export async function POST(req) {
   try {
     const body = await req.json();
+    console.log('POST /api/phutung body:', JSON.stringify(body));
     const { TenPhuTung, DonGia } = body;
 
     if (!TenPhuTung || DonGia === undefined || DonGia === null) {
+      console.log('Validation failed:', { TenPhuTung, DonGia });
       return NextResponse.json(
         { error: "Thiếu thông tin bắt buộc" },
         { status: 400 }
       );
     }
 
+    const donGiaValue = parseFloat(DonGia);
+    if (isNaN(donGiaValue)) {
+      console.log('Invalid DonGia:', DonGia);
+      return NextResponse.json(
+        { error: "Đơn giá không hợp lệ" },
+        { status: 400 }
+      );
+    }
+
+    console.log('Creating phutung with:', { TenPhuTung, DonGia: donGiaValue });
     const phuTung = await prisma.pHUTUNG.create({
       data: {
         TenPhuTung,
-        DonGia: parseFloat(DonGia),
+        DonGia: donGiaValue,
       },
     });
 
+    console.log('Created phuTung:', phuTung);
     return NextResponse.json(phuTung, { status: 201 });
   } catch (error) {
-    console.error(error);
+    console.error('POST /api/phutung error:', error);
+    console.error('Error stack:', error.stack);
     return NextResponse.json(
-      { error: "Lỗi khi thêm phụ tùng" },
+      { error: error.message || "Lỗi khi thêm phụ tùng" },
       { status: 500 }
     );
   }
