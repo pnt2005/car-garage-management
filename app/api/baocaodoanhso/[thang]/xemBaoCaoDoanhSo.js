@@ -6,7 +6,7 @@ export async function xemBaoCaoDoanhSo(thang) {
     include: {
       ChiTietBaoCaoDoanhSo: {
         include: { HieuXe: true },
-      }
+      },
     },
   });
 
