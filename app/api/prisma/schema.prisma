@@ -69,7 +69,7 @@ model CHITIETPHIEUSUACHUA {
   MaChiTietPhieuSuaChua Int    @id @default(autoincrement())
   NoiDung        String
   SoLuong        Int
-  DonGia         Float
+  ThanhTien      Float
 
   MaPhuTung Int
   PhuTung   PHUTUNG @relation(fields: [MaPhuTung], references: [MaPhuTung])
