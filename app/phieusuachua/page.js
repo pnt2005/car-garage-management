@@ -211,49 +211,42 @@ export default function PhieuSuaChua() {
             </div>
 
             {/* Chi tiết */}
-            {chiTiet.map((ct, i) => (
-              <div
-                key={i}
-                className="max-h-64 overflow-y-auto border p-2 rounded bg-white"
-              >
-                <input
-                  placeholder="Mã phụ tùng"
-                  className="border p-2 w-full mb-2 rounded"
-                  value={ct.MaPhuTung}
-                  onChange={(e) =>
-                    updateChiTiet(i, "MaPhuTung", e.target.value)
-                  }
-                />
+            <div className="max-h-72 overflow-y-auto space-y-3 mb-3">
+              {chiTiet.map((ct, i) => (
+                <div key={i} className="border p-2 rounded bg-white">
+                  <input
+                    placeholder="Mã phụ tùng"
+                    className="border p-2 w-full mb-2 rounded"
+                    value={ct.MaPhuTung}
+                    onChange={(e) => updateChiTiet(i, "MaPhuTung", e.target.value)}
+                  />
 
-                <input
-                  placeholder="Số lượng"
-                  type="number"
-                  className="border p-2 w-full mb-2 rounded"
-                  value={ct.SoLuong}
-                  onChange={(e) =>
-                    updateChiTiet(i, "SoLuong", Number(e.target.value))
-                  }
-                />
+                  <input
+                    placeholder="Số lượng"
+                    type="number"
+                    className="border p-2 w-full mb-2 rounded"
+                    value={ct.SoLuong}
+                    onChange={(e) =>
+                      updateChiTiet(i, "SoLuong", Number(e.target.value))
+                    }
+                  />
 
-                <input
-                  placeholder="Mã tiền công"
-                  className="border p-2 w-full mb-2 rounded"
-                  value={ct.MaTienCong}
-                  onChange={(e) =>
-                    updateChiTiet(i, "MaTienCong", e.target.value)
-                  }
-                />
+                  <input
+                    placeholder="Mã tiền công"
+                    className="border p-2 w-full mb-2 rounded"
+                    value={ct.MaTienCong}
+                    onChange={(e) => updateChiTiet(i, "MaTienCong", e.target.value)}
+                  />
 
-                <textarea
-                  placeholder="Nội dung"
-                  className="border p-2 w-full rounded"
-                  value={ct.NoiDung}
-                  onChange={(e) =>
-                    updateChiTiet(i, "NoiDung", e.target.value)
-                  }
-                />
-              </div>
-            ))}
+                  <textarea
+                    placeholder="Nội dung"
+                    className="border p-2 w-full rounded"
+                    value={ct.NoiDung}
+                    onChange={(e) => updateChiTiet(i, "NoiDung", e.target.value)}
+                  />
+                </div>
+              ))}
+            </div>
 
             <button
               onClick={addChiTiet}
