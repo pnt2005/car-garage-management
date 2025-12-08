@@ -170,5 +170,5 @@ model CHITIETNHAPPHUTUNG {
 model THAM_SO {
   id            Int   @id @default(1)
   TiepNhanToiDa Int
-  ThuVuotQuaNo  Float
+  ThuVuotQuaNo  Boolean @default(false)
 }
