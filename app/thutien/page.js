@@ -57,7 +57,7 @@ export default function PhieuThuTien() {
         return;
       }
 
-      const r = await fetch("/api/phieuthutien", {
+      const r = await fetch("/api/thutien", {
         method: editingId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -104,7 +104,7 @@ export default function PhieuThuTien() {
     const prev = phieus;
     setPhieus(phieus.filter((p) => p.MaPhieuThuTien !== MaPhieuThuTien));
     try {
-      const r = await fetch("/api/phieuthutien", {
+      const r = await fetch("/api/thutien", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ MaPhieuThuTien }),
@@ -121,11 +121,53 @@ export default function PhieuThuTien() {
     }
   };
 
+  // ===== HÀM IN PHIẾU =====
+  const printPhieu = (p) => {
+    const w = window.open("", "_blank", "width=800,height=600");
+
+    w.document.write(`
+      <html>
+        <head>
+          <title>Phiếu thu tiền #${p.MaPhieuThuTien}</title>
+          <style>
+            body { font-family: Arial; padding: 20px; }
+            h2 { margin-bottom: 10px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            td, th { border: 1px solid #000; padding: 8px; }
+          </style>
+        </head>
+        <body>
+          <h2>PHIẾU THU TIỀN</h2>
+          <p><strong>Mã phiếu:</strong> ${p.MaPhieuThuTien}</p>
+          <p><strong>Chủ xe:</strong> ${p.ChuXe?.TenChuXe || ""}</p>
+          <p><strong>Biển số:</strong> ${p.TiepNhanXeSua?.BienSo || ""}</p>
+          <p><strong>Ngày thu:</strong> ${p.NgayThuTien.split("T")[0]}</p>
+
+          <table>
+            <tr>
+              <th>Số tiền thu</th>
+            </tr>
+            <tr>
+              <td>${p.SoTienThu}</td>
+            </tr>
+          </table>
+
+          <script>
+            window.print();
+            window.onafterprint = () => window.close();
+          </script>
+        </body>
+      </html>
+    `);
+  };
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">Thu tiền</h1>
+
       <section className="bg-white p-6 rounded-lg shadow-md mb-6">
         <form onSubmit={submit} className="grid grid-cols-2 gap-4">
+          {/* form fields */}
           <select
             value={form.MaChuXe}
             onChange={(e) => onChange("MaChuXe", parseInt(e.target.value))}
@@ -138,6 +180,7 @@ export default function PhieuThuTien() {
               </option>
             ))}
           </select>
+
           <select
             value={form.MaTiepNhanXeSua}
             onChange={(e) =>
@@ -154,12 +197,14 @@ export default function PhieuThuTien() {
                 </option>
               ))}
           </select>
+
           <input
             type="date"
             value={form.NgayThuTien}
             onChange={(e) => onChange("NgayThuTien", e.target.value)}
             className="p-2 border rounded"
           />
+
           <input
             type="number"
             value={form.SoTienThu}
@@ -167,6 +212,7 @@ export default function PhieuThuTien() {
             placeholder="Số tiền thu"
             className="p-2 border rounded"
           />
+
           <div className="col-span-2 flex gap-2">
             <button
               type="submit"
@@ -175,6 +221,7 @@ export default function PhieuThuTien() {
             >
               {editingId ? "Cập nhật" : "Thu tiền"}
             </button>
+
             {editingId && (
               <button
                 type="button"
@@ -193,12 +240,14 @@ export default function PhieuThuTien() {
               </button>
             )}
           </div>
+
           {msg && <div className="col-span-2 text-green-600">{msg}</div>}
         </form>
       </section>
 
       <section className="bg-white p-6 rounded-lg shadow-md">
         <h2 className="text-xl mb-3">Danh sách phiếu thu tiền</h2>
+
         {phieus.length === 0 ? (
           <p className="text-gray-500">Chưa có phiếu thu tiền</p>
         ) : (
@@ -213,6 +262,7 @@ export default function PhieuThuTien() {
                 <th className="border px-2 py-1">Thao tác</th>
               </tr>
             </thead>
+
             <tbody>
               {phieus.map((p) => (
                 <tr key={p.MaPhieuThuTien}>
@@ -225,19 +275,30 @@ export default function PhieuThuTien() {
                     {p.NgayThuTien.split("T")[0]}
                   </td>
                   <td className="border px-2 py-1">{p.SoTienThu}</td>
-                  <td className="border px-2 py-1 flex gap-2">
-                    <button
-                      onClick={() => edit(p)}
-                      className="px-3 py-1 bg-teal-500 text-white rounded"
-                    >
-                      Sửa
-                    </button>
-                    <button
-                      onClick={() => del(p.MaPhieuThuTien)}
-                      className="px-3 py-1 bg-red-500 text-white rounded"
-                    >
-                      Xóa
-                    </button>
+
+                  <td className="border px-2 py-1">
+                    <div className="flex justify-center items-center space-x-2">
+                      <button
+                        onClick={() => edit(p)}
+                        className="px-3 py-1 bg-teal-500 text-white rounded"
+                      >
+                        Sửa
+                      </button>
+
+                      <button
+                        onClick={() => del(p.MaPhieuThuTien)}
+                        className="px-3 py-1 bg-red-500 text-white rounded"
+                      >
+                        Xóa
+                      </button>
+
+                      <button
+                        onClick={() => printPhieu(p)}
+                        className="px-3 py-1 bg-gray-700 text-white rounded"
+                      >
+                        In
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
