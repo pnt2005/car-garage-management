@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 export default function PhieuThuTien() {
   const [phieus, setPhieus] = useState([]);
   const [chuxes, setChuxes] = useState([]);
-  const [tiepnhanxes, setTiepNhanXes] = useState([]);
+  // keep MaTiepNhanXeSua in form for existing records, but we no longer require selecting a repair invoice
   const [form, setForm] = useState({
     MaChuXe: "",
     MaTiepNhanXeSua: "",
@@ -18,19 +18,13 @@ export default function PhieuThuTien() {
   const load = async () => {
     setLoading(true);
     try {
-      const [rPhieu, rChu, rXe] = await Promise.all([
+      const [rPhieu, rChu] = await Promise.all([
         fetch("/api/thutien"),
         fetch("/api/xe?type=chuxe"),
-        fetch("/api/xe"),
       ]);
-      const [dataPhieu, dataChu, dataXe] = await Promise.all([
-        rPhieu.json(),
-        rChu.json(),
-        rXe.json(),
-      ]);
+      const [dataPhieu, dataChu] = await Promise.all([rPhieu.json(), rChu.json()]);
       if (rPhieu.ok) setPhieus(dataPhieu || []);
       if (rChu.ok) setChuxes(dataChu || []);
-      if (rXe.ok) setTiepNhanXes(dataXe || []);
     } catch (e) {
       console.error(e);
       setMsg("Lỗi khi tải dữ liệu");
@@ -51,7 +45,7 @@ export default function PhieuThuTien() {
     setMsg("");
     try {
       const { MaChuXe, MaTiepNhanXeSua, NgayThuTien, SoTienThu } = form;
-      if (!MaChuXe || !MaTiepNhanXeSua || !NgayThuTien || !SoTienThu) {
+      if (!MaChuXe || !NgayThuTien || !SoTienThu) {
         setMsg("Vui lòng nhập đầy đủ thông tin");
         setLoading(false);
         return;
@@ -63,7 +57,7 @@ export default function PhieuThuTien() {
         body: JSON.stringify({
           MaPhieuThuTien: editingId,
           MaChuXe,
-          MaTiepNhanXeSua,
+          MaTiepNhanXeSua: MaTiepNhanXeSua || null,
           NgayThuTien,
           SoTienThu,
         }),
@@ -138,22 +132,7 @@ export default function PhieuThuTien() {
               </option>
             ))}
           </select>
-          <select
-            value={form.MaTiepNhanXeSua}
-            onChange={(e) =>
-              onChange("MaTiepNhanXeSua", parseInt(e.target.value))
-            }
-            className="p-2 border rounded"
-          >
-            <option value="">Chọn phiếu sửa xe</option>
-            {tiepnhanxes
-              .filter((x) => x.MaChuXe === form.MaChuXe)
-              .map((x) => (
-                <option key={x.MaTiepNhanXeSua} value={x.MaTiepNhanXeSua}>
-                  {x.BienSo} ({x.NgayTiepNhanXeSua.split("T")[0]})
-                </option>
-              ))}
-          </select>
+          {/* Phiếu sửa xe selector removed as requested */}
           <input
             type="date"
             value={form.NgayThuTien}
@@ -207,7 +186,7 @@ export default function PhieuThuTien() {
               <tr className="bg-gray-100">
                 <th className="border px-2 py-1">Mã</th>
                 <th className="border px-2 py-1">Chủ xe</th>
-                <th className="border px-2 py-1">Phiếu sửa xe</th>
+                {/* Phiếu sửa xe column removed */}
                 <th className="border px-2 py-1">Ngày thu</th>
                 <th className="border px-2 py-1">Số tiền</th>
                 <th className="border px-2 py-1">Thao tác</th>
@@ -218,9 +197,7 @@ export default function PhieuThuTien() {
                 <tr key={p.MaPhieuThuTien}>
                   <td className="border px-2 py-1">{p.MaPhieuThuTien}</td>
                   <td className="border px-2 py-1">{p.ChuXe?.TenChuXe}</td>
-                  <td className="border px-2 py-1">
-                    {p.TiepNhanXeSua?.BienSo}
-                  </td>
+                  {/* Phiếu sửa xe cell removed */}
                   <td className="border px-2 py-1">
                     {p.NgayThuTien.split("T")[0]}
                   </td>

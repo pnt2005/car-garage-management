@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 export default function PhuTung() {
   const [phuTungs, setPhuTungs] = useState([]);
@@ -100,36 +101,26 @@ export default function PhuTung() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Quản lý phụ tùng</h1>
+      <h1 className="text-2xl font-bold mb-4">Phụ tùng</h1>
 
-      <section className="bg-white p-6 rounded-lg shadow-md mb-6">
-        <h2 className="text-xl mb-3">{editingId ? 'Cập nhật' : 'Thêm'} phụ tùng</h2>
-        <form onSubmit={submit} className="grid grid-cols-2 gap-4">
-          <input required value={form.TenPhuTung} onChange={e => onChange('TenPhuTung', e.target.value)} placeholder="Tên phụ tùng" className="p-2 border rounded" />
-          <input required type="number" min="0" step="1000" value={form.DonGia} onChange={e => onChange('DonGia', e.target.value)} placeholder="Đơn giá" className="p-2 border rounded" />
-          <div className="col-span-2 flex gap-2">
-            <button type="submit" disabled={loading} className="px-4 py-2 bg-blue-500 text-white rounded">{editingId ? 'Cập nhật' : 'Thêm'}</button>
-            {editingId && <button type="button" onClick={() => { setEditingId(null); setForm({ TenPhuTung: '', DonGia: '' }); }} className="px-4 py-2 bg-gray-500 text-white rounded">Hủy</button>}
-          </div>
-          {msg && <div className="col-span-2 text-green-600">{msg}</div>}
-        </form>
-      </section>
+      {/* Navigation */}
+      <div className="mb-6 flex gap-2">
+        <Link href="/phutung/nhap" className="px-4 py-2 bg-green-500 text-white rounded">
+          Nhập phụ tùng
+        </Link>
+      </div>
 
       <section className="bg-white p-6 rounded-lg shadow-md">
         <h2 className="text-xl mb-3">Danh sách phụ tùng</h2>
         {phuTungs.length === 0 ? <p className="text-gray-500">Chưa có phụ tùng</p> : (
           <table className="w-full border-collapse border">
-            <thead><tr className="bg-gray-100"><th className="border px-2 py-1">Mã</th><th className="border px-2 py-1">Tên</th><th className="border px-2 py-1">Đơn giá</th><th className="border px-2 py-1">Thao tác</th></tr></thead>
+            <thead><tr className="bg-gray-100"><th className="border px-2 py-1">Mã</th><th className="border px-2 py-1">Tên</th><th className="border px-2 py-1">Đơn giá</th></tr></thead>
             <tbody>
               {phuTungs.map(pt => (
                 <tr key={pt.MaPhuTung} className={editingId === pt.MaPhuTung ? 'bg-blue-50' : ''}>
                   <td className="border px-2 py-1">{pt.MaPhuTung}</td>
                   <td className="border px-2 py-1">{pt.TenPhuTung}</td>
                   <td className="border px-2 py-1 text-right">{fmt(pt.DonGia)}₫</td>
-                  <td className="border px-2 py-1 text-center">
-                    <button onClick={() => edit(pt)} className="px-3 py-1 bg-teal-500 text-white rounded mr-2">Sửa</button>
-                    <button onClick={() => del(pt.MaPhuTung)} className="px-3 py-1 bg-red-500 text-white rounded">Xóa</button>
-                  </td>
                 </tr>
               ))}
             </tbody>
