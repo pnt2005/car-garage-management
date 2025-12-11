@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/db.js";
 
-// ===== PHIEUTHUTIEN =====
+// ===== PHIEUTHUTIEN (ĐÃ CHỈNH SỬA) =====
 async function getPhieuThuList() {
   return await prisma.pHIEUTHUTIEN.findMany({
     include: { ChuXe: true, TiepNhanXeSua: true },
@@ -10,45 +10,60 @@ async function getPhieuThuList() {
 }
 
 async function createPhieuThu(body) {
-  const { MaChuXe, MaTiepNhanXeSua, NgayThuTien, SoTienThu } = body;
-  if (!MaChuXe || !MaTiepNhanXeSua || !NgayThuTien || !SoTienThu)
-    throw new Error("Thiếu thông tin PHIEUTHUTIEN bắt buộc");
-  // Update TienNo của Chủ xe
-  const chuXe = await prisma.cHUXE.findUnique({ where: { MaChuXe } });
+  // 1. Bỏ MaTiepNhanXeSua khỏi kiểm tra bắt buộc
+  const { MaChuXe, NgayThuTien, SoTienThu } = body;
+
+  if (!MaChuXe || !NgayThuTien || !SoTienThu)
+    throw new Error(
+      "Thiếu thông tin PHIEUTHUTIEN bắt buộc: Chủ xe, Ngày thu, Số tiền thu"
+    ); // 2. Xử lý dữ liệu
+
+  const soTienThuFloat = parseFloat(SoTienThu);
+  const maChuXeInt = parseInt(MaChuXe);
+  const maTiepNhanXeSuaInt = body.MaTiepNhanXeSua
+    ? parseInt(body.MaTiepNhanXeSua)
+    : null; // Lấy hoặc gán null
+
+  if (isNaN(soTienThuFloat) || soTienThuFloat <= 0)
+    throw new Error("Số tiền thu không hợp lệ"); // 3. Update TienNo của Chủ xe
+
+  const chuXe = await prisma.cHUXE.findUnique({
+    where: { MaChuXe: maChuXeInt },
+  });
   if (!chuXe) throw new Error("Chủ xe không tồn tại");
 
   await prisma.cHUXE.update({
-    where: { MaChuXe },
-    data: { TienNo: chuXe.TienNo - parseFloat(SoTienThu) },
-  });
+    where: { MaChuXe: maChuXeInt },
+    data: { TienNo: chuXe.TienNo - soTienThuFloat },
+  }); // 4. Tạo Phiếu Thu Tiền (DẠNG ĐÃ SỬA LỖI CÚ PHÁP)
 
   return await prisma.pHIEUTHUTIEN.create({
     data: {
-      MaChuXe,
-      MaTiepNhanXeSua,
+      MaChuXe: maChuXeInt, // DÒNG GÂY LỖI: HÃY XÓA TOÀN BỘ PHẦN CHÚ THÍCH NẾU NÓ GÂY RA LỖI
+      MaTiepNhanXeSua: maTiepNhanXeSuaInt, // KHÔNG CÓ BẤT KỲ KÝ TỰ THỪA NÀO TRƯỚC DẤU PHẨY HOẶC TRƯỚC DÒNG TIẾP THEO
+
       NgayThuTien: new Date(NgayThuTien),
-      SoTienThu: parseFloat(SoTienThu),
-    },
+      SoTienThu: soTienThuFloat,
+    }, // <-- Đóng ngoặc nhọn của data
+    include: { ChuXe: true, TiepNhanXeSua: true },
   });
 }
 
 async function updatePhieuThu(body) {
-  const { MaPhieuThuTien, MaChuXe, MaTiepNhanXeSua, NgayThuTien, SoTienThu } =
-    body;
-  if (
-    !MaPhieuThuTien ||
-    !MaChuXe ||
-    !MaTiepNhanXeSua ||
-    !NgayThuTien ||
-    !SoTienThu
-  )
+  // Bỏ MaTiepNhanXeSua khỏi kiểm tra bắt buộc
+  const { MaPhieuThuTien, MaChuXe, NgayThuTien, SoTienThu } = body;
+  if (!MaPhieuThuTien || !MaChuXe || !NgayThuTien || !SoTienThu)
     throw new Error("Thiếu thông tin PHIEUTHUTIEN để cập nhật");
+
+  const maTiepNhanXeSuaInt = body.MaTiepNhanXeSua
+    ? parseInt(body.MaTiepNhanXeSua)
+    : null;
 
   return await prisma.pHIEUTHUTIEN.update({
     where: { MaPhieuThuTien: parseInt(MaPhieuThuTien) },
     data: {
-      MaChuXe,
-      MaTiepNhanXeSua,
+      MaChuXe: parseInt(MaChuXe),
+      MaTiepNhanXeSua: maTiepNhanXeSuaInt, // Đã chỉnh sửa để truyền null an toàn
       NgayThuTien: new Date(NgayThuTien),
       SoTienThu: parseFloat(SoTienThu),
     },
@@ -56,12 +71,14 @@ async function updatePhieuThu(body) {
 }
 
 async function deletePhieuThu(MaPhieuThuTien) {
+  // *LƯU Ý*: Nếu bạn muốn hoàn lại TienNo khi xóa, bạn phải truyền MaChuXe và SoTienThu
+  // từ client và thêm logic hoàn tiền vào đây.
   return await prisma.pHIEUTHUTIEN.delete({
     where: { MaPhieuThuTien: parseInt(MaPhieuThuTien) },
   });
 }
 
-// ===== MAIN API HANDLER =====
+// ===== MAIN API HANDLER (GIỮ NGUYÊN) =====
 export async function GET(req) {
   try {
     return NextResponse.json(await getPhieuThuList());

@@ -37,8 +37,9 @@ model PHIEUTHUTIEN {
   MaChuXe Int
   ChuXe   CHUXE @relation(fields: [MaChuXe], references: [MaChuXe])
 
-  MaTiepNhanXeSua Int
-  TiepNhanXeSua   TIEPNHANXESUA @relation(fields: [MaTiepNhanXeSua], references: [MaTiepNhanXeSua])
+  // ***** ĐÃ CHỈNH SỬA ĐỂ CHO PHÉP NULL *****
+  MaTiepNhanXeSua Int? // <-- Dấu chấm hỏi (?)
+  TiepNhanXeSua   TIEPNHANXESUA? @relation(fields: [MaTiepNhanXeSua], references: [MaTiepNhanXeSua]) // <-- Dấu chấm hỏi (?)
 }
 
 model TIEPNHANXESUA {
@@ -48,28 +49,28 @@ model TIEPNHANXESUA {
   NgayTiepNhanXeSua DateTime
   BienSo            String
 
-  HieuXe       HIEUXE         @relation(fields: [MaHieuXe], references: [MaHieuXe])
-  ChuXe        CHUXE          @relation(fields: [MaChuXe], references: [MaChuXe])
+  HieuXe        HIEUXE          @relation(fields: [MaHieuXe], references: [MaHieuXe])
+  ChuXe         CHUXE           @relation(fields: [MaChuXe], references: [MaChuXe])
   // Quan hệ ngược
   PhieuThuTien PHIEUTHUTIEN[]
   PhieuSuaChua PHIEUSUACHUA[]
 }
 
 model PHIEUSUACHUA {
-  MaPhieuSuaChua       Int      @id @default(autoincrement())
-  NgaySuaChua   DateTime
-  TongThanhTien Float
-  MaTiepNhanXeSua    Int
+  MaPhieuSuaChua      Int      @id @default(autoincrement())
+  NgaySuaChua         DateTime
+  TongThanhTien       Float
+  MaTiepNhanXeSua     Int
   // Quan hệ ngược
   ChiTietPhieuSuaChua CHITIETPHIEUSUACHUA[]
   TiepNhanXeSua       TIEPNHANXESUA         @relation(fields: [MaTiepNhanXeSua], references: [MaTiepNhanXeSua])
 }
 
 model CHITIETPHIEUSUACHUA {
-  MaChiTietPhieuSuaChua Int    @id @default(autoincrement())
-  NoiDung        String
-  SoLuong        Int
-  ThanhTien      Float
+  MaChiTietPhieuSuaChua Int      @id @default(autoincrement())
+  NoiDung               String
+  SoLuong               Int
+  ThanhTien             Float
 
   MaPhuTung Int
   PhuTung   PHUTUNG @relation(fields: [MaPhuTung], references: [MaPhuTung])
@@ -94,7 +95,7 @@ model PHUTUNG {
 }
 
 model TIENCONG {
-  MaTienCong  Int    @id @default(autoincrement())
+  MaTienCong Int    @id @default(autoincrement())
   TenTienCong String
   GiaTienCong Float
 
@@ -168,7 +169,7 @@ model CHITIETNHAPPHUTUNG {
 }
 
 model THAM_SO {
-  id            Int   @id @default(1)
-  TiepNhanToiDa Int
-  ThuVuotQuaNo  Boolean @default(false)
+  id              Int     @id @default(1)
+  TiepNhanToiDa   Int
+  ThuVuotQuaNo    Boolean @default(false)
 }
