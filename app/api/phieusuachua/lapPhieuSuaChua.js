@@ -99,7 +99,8 @@ export async function lapPhieuSuaChua(data) {
       const phuTung = mapPhuTung[ct.MaPhuTung];
 
       const tienCong = mapTienCong[ct.MaTienCong];
-      if (!tienCong) throw new Error(`Tiền công không tồn tại: ${ct.MaTienCong}`);
+      if (!tienCong)
+        throw new Error(`Tiền công không tồn tại: ${ct.MaTienCong}`);
 
       const donGia = Number(phuTung.DonGia);
       const giaTienCong = Number(tienCong.GiaTienCong);

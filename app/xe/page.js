@@ -7,6 +7,7 @@ export default function Xe() {
   const [hieuxes, setHieuxes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
+
   const [form, setForm] = useState({
     MaChuXe: "",
     MaHieuXe: "",
@@ -18,9 +19,10 @@ export default function Xe() {
     Email: "",
     TenHieuXe: "",
   });
+
   const [editingId, setEditingId] = useState(null);
 
-  // Load dữ liệu
+  // Load data
   const load = async () => {
     setLoading(true);
     try {
@@ -29,15 +31,16 @@ export default function Xe() {
         fetch("/api/xe?type=chuxe"),
         fetch("/api/xe?type=hieuxe"),
       ]);
+
       const [dataXe, dataChu, dataHieu] = await Promise.all([
-        rXe.json(),
-        rChu.json(),
-        rHieu.json(),
+        rXe.ok ? rXe.json() : [],
+        rChu.ok ? rChu.json() : [],
+        rHieu.ok ? rHieu.json() : [],
       ]);
-      if (rXe.ok) setXes(dataXe || []);
-      else setMsg(dataXe.error || "Lỗi khi lấy danh sách xe");
-      if (rChu.ok) setChuxes(dataChu || []);
-      if (rHieu.ok) setHieuxes(dataHieu || []);
+
+      setXes(dataXe || []);
+      setChuxes(dataChu || []);
+      setHieuxes(dataHieu || []);
     } catch (e) {
       console.error(e);
       setMsg("Lỗi khi tải dữ liệu");
@@ -56,11 +59,12 @@ export default function Xe() {
     e?.preventDefault();
     setLoading(true);
     setMsg("");
+
     try {
       let MaChuXe = form.MaChuXe;
       let MaHieuXe = form.MaHieuXe;
 
-      // Tạo Chủ xe mới nếu cần
+      // ----- Create Chủ xe -----
       if (!MaChuXe && form.TenChuXe) {
         const r = await fetch("/api/xe", {
           method: "POST",
@@ -78,7 +82,7 @@ export default function Xe() {
         MaChuXe = data.MaChuXe;
       }
 
-      // Tạo Hiệu xe mới nếu cần
+      // ----- Create Hiệu xe -----
       if (!MaHieuXe && form.TenHieuXe) {
         const r = await fetch("/api/xe", {
           method: "POST",
@@ -90,14 +94,14 @@ export default function Xe() {
         MaHieuXe = data.MaHieuXe;
       }
 
-      // Kiểm tra bắt buộc cho xe
+      // ----- Required -----
       if (!MaChuXe || !MaHieuXe || !form.BienSo || !form.NgayTiepNhanXeSua) {
         setMsg("Vui lòng nhập đầy đủ thông tin xe");
         setLoading(false);
         return;
       }
 
-      // Tạo hoặc cập nhật xe
+      // ----- Create or Update Xe -----
       const rXe = await fetch("/api/xe", {
         method: editingId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -110,11 +114,13 @@ export default function Xe() {
           NgayTiepNhanXeSua: form.NgayTiepNhanXeSua,
         }),
       });
+
       const dataXe = await rXe.json();
       if (!rXe.ok) throw new Error(dataXe.error || "Lỗi tạo xe");
 
       await load();
       setMsg(editingId ? "Cập nhật thành công" : "Thêm thành công");
+
       setForm({
         MaChuXe: "",
         MaHieuXe: "",
@@ -152,34 +158,24 @@ export default function Xe() {
 
   const del = async (MaTiepNhanXeSua) => {
     if (!confirm("Bạn có chắc muốn xóa?")) return;
+
     setLoading(true);
-    setMsg("");
     const prev = xes;
     setXes((p) => p.filter((x) => x.MaTiepNhanXeSua !== MaTiepNhanXeSua));
+
     try {
       const r = await fetch("/api/xe", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type: "xe", MaTiepNhanXeSua }),
       });
+
       const data = await r.json();
       if (!r.ok) {
         setMsg(data.error || "Lỗi khi xóa");
         setXes(prev);
-      } else setMsg("Xóa thành công");
-      if (editingId === MaTiepNhanXeSua) {
-        setEditingId(null);
-        setForm({
-          MaChuXe: "",
-          MaHieuXe: "",
-          BienSo: "",
-          NgayTiepNhanXeSua: "",
-          TenChuXe: "",
-          DiaChi: "",
-          DienThoai: "",
-          Email: "",
-          TenHieuXe: "",
-        });
+      } else {
+        setMsg("Xóa thành công");
       }
     } catch (e) {
       console.error(e);
@@ -191,84 +187,107 @@ export default function Xe() {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-4 md:p-6 max-w-5xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">Quản lý Xe</h1>
 
-      <section className="bg-white p-6 rounded-lg shadow-md mb-6">
-        <h2 className="text-xl mb-3">{editingId ? "Cập nhật" : "Thêm"} xe</h2>
-        <form onSubmit={submit} className="grid grid-cols-2 gap-4">
-          {/* Chọn hoặc nhập Chủ xe */}
-          <select
-            value={form.MaChuXe}
-            onChange={(e) => onChange("MaChuXe", parseInt(e.target.value))}
-            className="p-2 border rounded"
-          >
-            <option value="">Chọn chủ xe có sẵn</option>
-            {chuxes.map((c) => (
-              <option key={c.MaChuXe} value={c.MaChuXe}>
-                {c.TenChuXe}
-              </option>
-            ))}
-          </select>
-          {!form.MaChuXe && (
-            <input
-              type="text"
-              value={form.TenChuXe}
-              onChange={(e) => onChange("TenChuXe", e.target.value)}
-              placeholder="Tên chủ xe mới"
+      {/* FORM */}
+      <section className="bg-white p-5 rounded-xl shadow-md mb-6">
+        <h2 className="text-xl font-semibold mb-4">
+          {editingId ? "Cập nhật xe" : "Thêm xe"}
+        </h2>
+
+        <form
+          onSubmit={submit}
+          className="grid grid-cols-1 md:grid-cols-2 gap-4"
+        >
+          {/* Chủ xe */}
+          <div className="flex flex-col gap-2">
+            <label className="font-semibold">Chủ xe</label>
+            <select
+              value={form.MaChuXe}
+              onChange={(e) =>
+                onChange(
+                  "MaChuXe",
+                  e.target.value ? parseInt(e.target.value) : ""
+                )
+              }
               className="p-2 border rounded"
-            />
-          )}
-          {!form.MaChuXe && (
-            <>
+            >
+              <option value="">-- Chọn chủ xe có sẵn --</option>
+              {chuxes.map((c) => (
+                <option key={c.MaChuXe} value={c.MaChuXe}>
+                  {c.TenChuXe}
+                </option>
+              ))}
+            </select>
+
+            {!form.MaChuXe && (
+              <>
+                <input
+                  type="text"
+                  value={form.TenChuXe}
+                  onChange={(e) => onChange("TenChuXe", e.target.value)}
+                  placeholder="Tên chủ xe mới"
+                  className="p-2 border rounded"
+                />
+                <input
+                  type="text"
+                  value={form.DiaChi}
+                  onChange={(e) => onChange("DiaChi", e.target.value)}
+                  placeholder="Địa chỉ"
+                  className="p-2 border rounded"
+                />
+                <input
+                  type="text"
+                  value={form.DienThoai}
+                  onChange={(e) => onChange("DienThoai", e.target.value)}
+                  placeholder="Điện thoại"
+                  className="p-2 border rounded"
+                />
+                <input
+                  type="email"
+                  value={form.Email}
+                  onChange={(e) => onChange("Email", e.target.value)}
+                  placeholder="Email"
+                  className="p-2 border rounded"
+                />
+              </>
+            )}
+          </div>
+
+          {/* Hiệu xe */}
+          <div className="flex flex-col gap-2">
+            <label className="font-semibold">Hiệu xe</label>
+            <select
+              value={form.MaHieuXe}
+              onChange={(e) =>
+                onChange(
+                  "MaHieuXe",
+                  e.target.value ? parseInt(e.target.value) : ""
+                )
+              }
+              className="p-2 border rounded"
+            >
+              <option value="">-- Chọn hiệu xe có sẵn --</option>
+              {hieuxes.map((h) => (
+                <option key={h.MaHieuXe} value={h.MaHieuXe}>
+                  {h.TenHieuXe}
+                </option>
+              ))}
+            </select>
+
+            {!form.MaHieuXe && (
               <input
                 type="text"
-                value={form.DiaChi}
-                onChange={(e) => onChange("DiaChi", e.target.value)}
-                placeholder="Địa chỉ"
+                value={form.TenHieuXe}
+                onChange={(e) => onChange("TenHieuXe", e.target.value)}
+                placeholder="Tên hiệu xe mới"
                 className="p-2 border rounded"
               />
-              <input
-                type="text"
-                value={form.DienThoai}
-                onChange={(e) => onChange("DienThoai", e.target.value)}
-                placeholder="Điện thoại"
-                className="p-2 border rounded"
-              />
-              <input
-                type="email"
-                value={form.Email}
-                onChange={(e) => onChange("Email", e.target.value)}
-                placeholder="Email"
-                className="p-2 border rounded"
-              />
-            </>
-          )}
+            )}
+          </div>
 
-          {/* Chọn hoặc nhập Hiệu xe */}
-          <select
-            value={form.MaHieuXe}
-            onChange={(e) => onChange("MaHieuXe", parseInt(e.target.value))}
-            className="p-2 border rounded"
-          >
-            <option value="">Chọn hiệu xe có sẵn</option>
-            {hieuxes.map((h) => (
-              <option key={h.MaHieuXe} value={h.MaHieuXe}>
-                {h.TenHieuXe}
-              </option>
-            ))}
-          </select>
-          {!form.MaHieuXe && (
-            <input
-              type="text"
-              value={form.TenHieuXe}
-              onChange={(e) => onChange("TenHieuXe", e.target.value)}
-              placeholder="Tên hiệu xe mới"
-              className="p-2 border rounded"
-            />
-          )}
-
-          {/* Biển số & ngày */}
+          {/* Xe info */}
           <input
             type="text"
             value={form.BienSo}
@@ -283,15 +302,16 @@ export default function Xe() {
             className="p-2 border rounded"
           />
 
-          {/* Nút submit */}
-          <div className="col-span-2 flex gap-2">
+          {/* Buttons */}
+          <div className="md:col-span-2 flex flex-wrap gap-3">
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 bg-blue-500 text-white rounded"
+              className="px-4 py-2 bg-blue-600 text-white rounded"
             >
-              {editingId ? "Cập nhật" : "Thêm"}
+              {editingId ? "Cập nhật" : "Thêm mới"}
             </button>
+
             {editingId && (
               <button
                 type="button"
@@ -315,61 +335,82 @@ export default function Xe() {
               </button>
             )}
           </div>
-          {msg && <div className="col-span-2 text-green-600">{msg}</div>}
+
+          {msg && (
+            <div className="md:col-span-2 text-green-600 font-medium">
+              {msg}
+            </div>
+          )}
         </form>
       </section>
 
-      {/* Danh sách xe */}
-      <section className="bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-xl mb-3">Danh sách xe</h2>
-        {xes.length === 0 ? (
-          <p className="text-gray-500">Chưa có xe</p>
-        ) : (
-          <table className="w-full border-collapse border">
+      {/* TABLE */}
+      <section className="bg-white p-5 rounded-xl shadow-md">
+        <h2 className="text-xl font-semibold mb-3">Danh sách xe</h2>
+
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse min-w-max text-sm">
             <thead>
               <tr className="bg-gray-100">
-                <th className="border px-2 py-1">Mã</th>
-                <th className="border px-2 py-1">Chủ xe</th>
-                <th className="border px-2 py-1">Hiệu xe</th>
-                <th className="border px-2 py-1">Biển số</th>
-                <th className="border px-2 py-1">Ngày tiếp nhận</th>
-                <th className="border px-2 py-1">Thao tác</th>
+                <th className="border p-2">Mã</th>
+                <th className="border p-2">Chủ xe</th>
+                <th className="border p-2">Địa chỉ</th>
+                <th className="border p-2">Email</th>
+                <th className="border p-2">Điện thoại</th>
+                <th className="border p-2">Tiền nợ</th>
+                <th className="border p-2">Hiệu xe</th>
+                <th className="border p-2">Biển số</th>
+                <th className="border p-2">Ngày tiếp nhận</th>
+                <th className="border p-2">Thao tác</th>
               </tr>
             </thead>
+
             <tbody>
-              {xes.map((x) => (
-                <tr
-                  key={x.MaTiepNhanXeSua}
-                  className={
-                    editingId === x.MaTiepNhanXeSua ? "bg-blue-50" : ""
-                  }
-                >
-                  <td className="border px-2 py-1">{x.MaTiepNhanXeSua}</td>
-                  <td className="border px-2 py-1">{x.ChuXe?.TenChuXe}</td>
-                  <td className="border px-2 py-1">{x.HieuXe?.TenHieuXe}</td>
-                  <td className="border px-2 py-1">{x.BienSo}</td>
-                  <td className="border px-2 py-1">
-                    {x.NgayTiepNhanXeSua.split("T")[0]}
-                  </td>
-                  <td className="border px-2 py-1 text-center">
-                    <button
-                      onClick={() => edit(x)}
-                      className="px-3 py-1 bg-teal-500 text-white rounded mr-2"
-                    >
-                      Sửa
-                    </button>
-                    <button
-                      onClick={() => del(x.MaTiepNhanXeSua)}
-                      className="px-3 py-1 bg-red-500 text-white rounded"
-                    >
-                      Xóa
-                    </button>
+              {xes.length === 0 ? (
+                <tr>
+                  <td colSpan="10" className="text-center p-4 text-gray-500">
+                    Chưa có dữ liệu
                   </td>
                 </tr>
-              ))}
+              ) : (
+                xes.map((x) => (
+                  <tr
+                    key={x.MaTiepNhanXeSua}
+                    className={
+                      editingId === x.MaTiepNhanXeSua ? "bg-blue-50" : ""
+                    }
+                  >
+                    <td className="border p-2">{x.MaTiepNhanXeSua}</td>
+                    <td className="border p-2">{x.ChuXe?.TenChuXe}</td>
+                    <td className="border p-2">{x.ChuXe?.DiaChi}</td>
+                    <td className="border p-2">{x.ChuXe?.Email}</td>
+                    <td className="border p-2">{x.ChuXe?.DienThoai}</td>
+                    <td className="border p-2">{x.ChuXe?.TienNo}</td>
+                    <td className="border p-2">{x.HieuXe?.TenHieuXe}</td>
+                    <td className="border p-2">{x.BienSo}</td>
+                    <td className="border p-2">
+                      {x.NgayTiepNhanXeSua.split("T")[0]}
+                    </td>
+                    <td className="border p-2 text-center">
+                      <button
+                        onClick={() => edit(x)}
+                        className="px-3 py-1 bg-green-600 text-white rounded mr-2"
+                      >
+                        Sửa
+                      </button>
+                      <button
+                        onClick={() => del(x.MaTiepNhanXeSua)}
+                        className="px-3 py-1 bg-red-600 text-white rounded"
+                      >
+                        Xóa
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
-        )}
+        </div>
       </section>
     </div>
   );

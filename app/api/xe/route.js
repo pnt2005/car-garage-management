@@ -33,8 +33,28 @@ async function getXeList() {
 }
 async function createXe(body) {
   const { MaChuXe, MaHieuXe, NgayTiepNhanXeSua, BienSo } = body;
+
   if (!MaChuXe || !MaHieuXe || !NgayTiepNhanXeSua || !BienSo)
     throw new Error("Thiếu thông tin TIEPNHANXESUA bắt buộc");
+
+  const date = new Date(NgayTiepNhanXeSua);
+  const start = new Date(date.setHours(0, 0, 0, 0));
+  const end = new Date(date.setHours(23, 59, 59, 999));
+
+  const count = await prisma.tIEPNHANXESUA.count({
+    where: {
+      NgayTiepNhanXeSua: {
+        gte: start,
+        lte: end,
+      },
+    },
+  });
+
+  const MAX_XE = 30; // đổi số tại đây
+
+  if (count >= MAX_XE) {
+    throw new Error(`Chỉ được nhận tối đa ${MAX_XE} xe trong ngày`);
+  }
   return await prisma.tIEPNHANXESUA.create({
     data: {
       MaChuXe,
@@ -118,25 +138,38 @@ export async function PUT(req) {
 export async function DELETE(req) {
   try {
     const body = await req.json();
-    const type = body.type; // type = "chuxe" | "hieuxe" | "xe"
+    const type = body.type; // "chuxe" | "hieuxe" | "xe"
 
     let deleted;
-    if (type === "chuxe")
+
+    if (type === "chuxe") {
       deleted = await prisma.cHUXE.delete({
         where: { MaChuXe: parseInt(body.MaChuXe) },
       });
-    else if (type === "hieuxe")
+    } else if (type === "hieuxe") {
       deleted = await prisma.hIEUXE.delete({
         where: { MaHieuXe: parseInt(body.MaHieuXe) },
       });
-    else
-      deleted = await prisma.tIEPNHANXESUA.delete({
-        where: { MaTiepNhanXeSua: parseInt(body.MaTiepNhanXeSua) },
+    } else if (type === "xe") {
+      const id = parseInt(body.MaTiepNhanXeSua);
+
+      await prisma.pHIEUSUACHUA.deleteMany({
+        where: { MaTiepNhanXeSua: id },
       });
+
+      await prisma.pHIEUTHUTIEN.deleteMany({
+        where: { MaTiepNhanXeSua: id },
+      });
+
+      deleted = await prisma.tIEPNHANXESUA.delete({
+        where: { MaTiepNhanXeSua: id },
+      });
+    }
 
     return NextResponse.json(deleted);
   } catch (error) {
     console.error("DELETE /api/xe error:", error);
+
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
