@@ -1,14 +1,18 @@
 "use client";
 import { useEffect, useState } from "react";
 
-export default function PhieuThuTien() {
+// Hàm định dạng tiền tệ và ngày tháng
+const fmt = (v) => new Intl.NumberFormat("vi-VN").format(v || 0);
+const dateFmt = (d) => (d ? d.split("T")[0] : "");
+
+export default function ThuTienDocLap() {
   const [phieus, setPhieus] = useState([]);
   const [chuxes, setChuxes] = useState([]);
-  // keep MaTiepNhanXeSua in form for existing records, but we no longer require selecting a repair invoice
+
   const [form, setForm] = useState({
     MaChuXe: "",
-    MaTiepNhanXeSua: "",
-    NgayThuTien: "",
+    // KHÔNG CÓ MaTiepNhanXeSua
+    NgayThuTien: dateFmt(new Date().toISOString()),
     SoTienThu: "",
   });
   const [editingId, setEditingId] = useState(null);
@@ -18,13 +22,22 @@ export default function PhieuThuTien() {
   const load = async () => {
     setLoading(true);
     try {
+      // Chỉ fetch Phiếu thu tiền và Chủ xe
       const [rPhieu, rChu] = await Promise.all([
-        fetch("/api/thutien"),
-        fetch("/api/xe?type=chuxe"),
+        fetch("/api/thutien"), // Giả định đây là endpoint chứa tất cả phiếu thu
+        fetch("/api/xe?type=chuxe"), // Giả định đây là endpoint lấy danh sách Chủ xe
       ]);
-      const [dataPhieu, dataChu] = await Promise.all([rPhieu.json(), rChu.json()]);
+
+      const [dataPhieu, dataChu] = await Promise.all([
+        rPhieu.json(),
+        rChu.json(),
+      ]);
+
       if (rPhieu.ok) setPhieus(dataPhieu || []);
+      else console.error("Lỗi tải phiếu thu:", dataPhieu.error);
+
       if (rChu.ok) setChuxes(dataChu || []);
+      else console.error("Lỗi tải chủ xe:", dataChu.error);
     } catch (e) {
       console.error(e);
       setMsg("Lỗi khi tải dữ liệu");
@@ -44,23 +57,49 @@ export default function PhieuThuTien() {
     setLoading(true);
     setMsg("");
     try {
-      const { MaChuXe, MaTiepNhanXeSua, NgayThuTien, SoTienThu } = form;
+      const { MaChuXe, NgayThuTien, SoTienThu } = form;
+
       if (!MaChuXe || !NgayThuTien || !SoTienThu) {
-        setMsg("Vui lòng nhập đầy đủ thông tin");
+        setMsg("Vui lòng nhập đầy đủ thông tin (Chủ xe, Ngày thu, Số tiền)");
         setLoading(false);
         return;
       }
 
+      const soTienThuFloat = parseFloat(SoTienThu);
+
+      if (isNaN(soTienThuFloat) || soTienThuFloat <= 0) {
+        setMsg("Số tiền thu phải lớn hơn 0.");
+        setLoading(false);
+        return;
+      }
+
+      const currentChuXe = chuxes.find((c) => c.MaChuXe === parseInt(MaChuXe));
+      const tienNoHienTai = currentChuXe ? currentChuXe.TienNo : 0;
+      const choPhepThuVuotNo = false;
+      if (!choPhepThuVuotNo && soTienThuFloat > tienNoHienTai) {
+        setMsg(
+          `Số tiền thu (${fmt(
+            soTienThuFloat
+          )} VND) không được vượt quá Tiền nợ hiện tại (${fmt(
+            tienNoHienTai
+          )} VND) của chủ xe.`
+        );
+        setLoading(false);
+        return;
+      }
+
+      const body = {
+        MaPhieuThuTien: editingId,
+        MaChuXe: parseInt(MaChuXe),
+        MaTiepNhanXeSua: null,
+        NgayThuTien,
+        SoTienThu: soTienThuFloat,
+      };
+
       const r = await fetch("/api/thutien", {
         method: editingId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          MaPhieuThuTien: editingId,
-          MaChuXe,
-          MaTiepNhanXeSua: MaTiepNhanXeSua || null,
-          NgayThuTien,
-          SoTienThu,
-        }),
+        body: JSON.stringify(body),
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || "Lỗi lưu phiếu");
@@ -69,8 +108,7 @@ export default function PhieuThuTien() {
       setMsg(editingId ? "Cập nhật thành công" : "Thêm thành công");
       setForm({
         MaChuXe: "",
-        MaTiepNhanXeSua: "",
-        NgayThuTien: "",
+        NgayThuTien: dateFmt(new Date().toISOString()),
         SoTienThu: "",
       });
       setEditingId(null);
@@ -86,8 +124,7 @@ export default function PhieuThuTien() {
     setEditingId(p.MaPhieuThuTien);
     setForm({
       MaChuXe: p.MaChuXe,
-      MaTiepNhanXeSua: p.MaTiepNhanXeSua,
-      NgayThuTien: p.NgayThuTien.split("T")[0],
+      NgayThuTien: dateFmt(p.NgayThuTien),
       SoTienThu: p.SoTienThu,
     });
   };
@@ -106,6 +143,7 @@ export default function PhieuThuTien() {
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || "Lỗi khi xóa");
       setMsg("Xóa thành công");
+      await load();
     } catch (e) {
       console.error(e);
       setPhieus(prev);
@@ -115,7 +153,7 @@ export default function PhieuThuTien() {
     }
   };
 
-  // ===== HÀM IN PHIẾU =====
+  // Hàm in phiếu (đã bỏ Biển số)
   const printPhieu = (p) => {
     const w = window.open("", "_blank", "width=800,height=600");
 
@@ -131,18 +169,17 @@ export default function PhieuThuTien() {
           </style>
         </head>
         <body>
-          <h2>PHIẾU THU TIỀN</h2>
+          <h2>PHIẾU THU TIỀN (THU TIỀN NỢ CHUNG)</h2>
           <p><strong>Mã phiếu:</strong> ${p.MaPhieuThuTien}</p>
           <p><strong>Chủ xe:</strong> ${p.ChuXe?.TenChuXe || ""}</p>
-          <p><strong>Biển số:</strong> ${p.TiepNhanXeSua?.BienSo || ""}</p>
-          <p><strong>Ngày thu:</strong> ${p.NgayThuTien.split("T")[0]}</p>
+          <p><strong>Ngày thu:</strong> ${dateFmt(p.NgayThuTien)}</p>
 
           <table>
             <tr>
               <th>Số tiền thu</th>
             </tr>
             <tr>
-              <td>${p.SoTienThu}</td>
+              <td>${fmt(p.SoTienThu)}</td>
             </tr>
           </table>
 
@@ -161,35 +198,22 @@ export default function PhieuThuTien() {
 
       <section className="bg-white p-6 rounded-lg shadow-md mb-6">
         <form onSubmit={submit} className="grid grid-cols-2 gap-4">
-          {/* form fields */}
           <select
             value={form.MaChuXe}
-            onChange={(e) => onChange("MaChuXe", parseInt(e.target.value))}
+            onChange={(e) =>
+              onChange(
+                "MaChuXe",
+                e.target.value ? parseInt(e.target.value) : ""
+              )
+            }
             className="p-2 border rounded"
           >
             <option value="">Chọn chủ xe</option>
             {chuxes.map((c) => (
               <option key={c.MaChuXe} value={c.MaChuXe}>
-                {c.TenChuXe} (Nợ: {c.TienNo})
+                {c.TenChuXe} (Nợ: {fmt(c.TienNo)})
               </option>
             ))}
-          </select>
-
-          <select
-            value={form.MaTiepNhanXeSua}
-            onChange={(e) =>
-              onChange("MaTiepNhanXeSua", parseInt(e.target.value))
-            }
-            className="p-2 border rounded"
-          >
-            <option value="">Chọn phiếu sửa xe</option>
-            {tiepnhanxes
-              .filter((x) => x.MaChuXe === form.MaChuXe)
-              .map((x) => (
-                <option key={x.MaTiepNhanXeSua} value={x.MaTiepNhanXeSua}>
-                  {x.BienSo} ({x.NgayTiepNhanXeSua.split("T")[0]})
-                </option>
-              ))}
           </select>
 
           <input
@@ -201,11 +225,15 @@ export default function PhieuThuTien() {
 
           <input
             type="number"
+            min="0"
+            step="1000"
             value={form.SoTienThu}
             onChange={(e) => onChange("SoTienThu", e.target.value)}
             placeholder="Số tiền thu"
             className="p-2 border rounded"
           />
+
+          <div className="p-2"></div>
 
           <div className="col-span-2 flex gap-2">
             <button
@@ -223,8 +251,7 @@ export default function PhieuThuTien() {
                   setEditingId(null);
                   setForm({
                     MaChuXe: "",
-                    MaTiepNhanXeSua: "",
-                    NgayThuTien: "",
+                    NgayThuTien: dateFmt(new Date().toISOString()),
                     SoTienThu: "",
                   });
                 }}
@@ -250,7 +277,6 @@ export default function PhieuThuTien() {
               <tr className="bg-gray-100">
                 <th className="border px-2 py-1">Mã</th>
                 <th className="border px-2 py-1">Chủ xe</th>
-                {/* Phiếu sửa xe column removed */}
                 <th className="border px-2 py-1">Ngày thu</th>
                 <th className="border px-2 py-1">Số tiền</th>
                 <th className="border px-2 py-1">Thao tác</th>
@@ -258,15 +284,14 @@ export default function PhieuThuTien() {
             </thead>
 
             <tbody>
+              {/* Lọc ra các phiếu không có MaTiepNhanXeSua nếu cần, 
+                  nhưng tôi sẽ giữ nguyên để hiển thị tất cả nếu API cho phép */}
               {phieus.map((p) => (
                 <tr key={p.MaPhieuThuTien}>
                   <td className="border px-2 py-1">{p.MaPhieuThuTien}</td>
                   <td className="border px-2 py-1">{p.ChuXe?.TenChuXe}</td>
-                  {/* Phiếu sửa xe cell removed */}
-                  <td className="border px-2 py-1">
-                    {p.NgayThuTien.split("T")[0]}
-                  </td>
-                  <td className="border px-2 py-1">{p.SoTienThu}</td>
+                  <td className="border px-2 py-1">{dateFmt(p.NgayThuTien)}</td>
+                  <td className="border px-2 py-1">{fmt(p.SoTienThu)}</td>
 
                   <td className="border px-2 py-1">
                     <div className="flex justify-center items-center space-x-2">
