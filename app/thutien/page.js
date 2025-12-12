@@ -194,7 +194,7 @@ export default function ThuTienDocLap() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Thu tiền Nợ Chung (Độc lập)</h1>
+      <h1 className="text-2xl font-bold mb-4">Thu tiền</h1>
 
       <section className="bg-white p-6 rounded-lg shadow-md mb-6">
         <form onSubmit={submit} className="grid grid-cols-2 gap-4">
