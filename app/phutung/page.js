@@ -114,13 +114,14 @@ export default function PhuTung() {
         <h2 className="text-xl mb-3">Danh sách phụ tùng</h2>
         {phuTungs.length === 0 ? <p className="text-gray-500">Chưa có phụ tùng</p> : (
           <table className="w-full border-collapse border">
-            <thead><tr className="bg-gray-100"><th className="border px-2 py-1">Mã</th><th className="border px-2 py-1">Tên</th><th className="border px-2 py-1">Đơn giá</th></tr></thead>
+            <thead><tr className="bg-gray-100"><th className="border px-2 py-1">Mã</th><th className="border px-2 py-1">Tên</th><th className="border px-2 py-1">Đơn giá</th><th className="border px-2 py-1">Số lượng tồn</th></tr></thead>
             <tbody>
               {phuTungs.map(pt => (
                 <tr key={pt.MaPhuTung} className={editingId === pt.MaPhuTung ? 'bg-blue-50' : ''}>
                   <td className="border px-2 py-1">{pt.MaPhuTung}</td>
                   <td className="border px-2 py-1">{pt.TenPhuTung}</td>
                   <td className="border px-2 py-1 text-right">{fmt(pt.DonGia)}₫</td>
+                  <td className="border px-2 py-1 text-center">{pt.SoLuongTon || 0}</td>
                 </tr>
               ))}
             </tbody>
