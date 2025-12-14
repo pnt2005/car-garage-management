@@ -91,6 +91,7 @@ export async function GET(req) {
   try {
     const url = new URL(req.url);
     const type = url.searchParams.get("type");
+    const keyword = url.searchParams.get("keyword");
 
     if (type === "count") {
       const today = new Date();
@@ -100,6 +101,14 @@ export async function GET(req) {
 
     if (type === "chuxe") return NextResponse.json(await getChuXeList());
     if (type === "hieuxe") return NextResponse.json(await getHieuXeList());
+
+    // 🔍 TRA CỨU
+    if (keyword) {
+      const data = await searchXe(keyword);
+      return NextResponse.json(data);
+    }
+
+    // 📋 DANH SÁCH FULL
     return NextResponse.json(await getXeList());
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -209,4 +218,44 @@ export async function DELETE(req) {
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+}
+
+async function searchXe(keyword) {
+  return await prisma.tIEPNHANXESUA.findMany({
+    where: {
+      OR: [
+        {
+          BienSo: {
+            contains: keyword,
+          },
+        },
+        {
+          ChuXe: {
+            TenChuXe: {
+              contains: keyword,
+            },
+          },
+        },
+        {
+          ChuXe: {
+            DienThoai: {
+              contains: keyword,
+            },
+          },
+        },
+        {
+          HieuXe: {
+            TenHieuXe: {
+              contains: keyword,
+            },
+          },
+        },
+      ],
+    },
+    include: {
+      ChuXe: true,
+      HieuXe: true,
+    },
+    orderBy: { MaTiepNhanXeSua: "asc" },
+  });
 }

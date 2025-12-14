@@ -296,20 +296,6 @@ export default function ThuTienDocLap() {
                   <td className="border px-2 py-1">
                     <div className="flex justify-center items-center space-x-2">
                       <button
-                        onClick={() => edit(p)}
-                        className="px-3 py-1 bg-teal-500 text-white rounded"
-                      >
-                        Sửa
-                      </button>
-
-                      <button
-                        onClick={() => del(p.MaPhieuThuTien)}
-                        className="px-3 py-1 bg-red-500 text-white rounded"
-                      >
-                        Xóa
-                      </button>
-
-                      <button
                         onClick={() => printPhieu(p)}
                         className="px-3 py-1 bg-gray-700 text-white rounded"
                       >

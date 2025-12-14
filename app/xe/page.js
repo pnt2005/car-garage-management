@@ -8,6 +8,8 @@ export default function Xe() {
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
   const [countInfo, setCountInfo] = useState({ count: 0, max: 30 });
+  const [keyword, setKeyword] = useState("");
+  const [searching, setSearching] = useState(false);
 
   const [form, setForm] = useState({
     MaChuXe: "",
@@ -291,6 +293,36 @@ export default function Xe() {
     }
   };
 
+  // SEARCH
+  const searchXe = async () => {
+    if (!keyword.trim()) {
+      load(); // quay lại danh sách đầy đủ
+      return;
+    }
+
+    setLoading(true);
+    setSearching(true);
+    setMsg("");
+
+    try {
+      const r = await fetch(`/api/xe?keyword=${encodeURIComponent(keyword)}`);
+      const data = await r.json();
+
+      if (!r.ok) throw new Error(data.error || "Lỗi tra cứu");
+
+      setXes(data); // CẬP NHẬT THÔNG BÁO KẾT QUẢ RÕ RÀNG HƠN
+      if (data.length === 0) {
+        setMsg(`Không tìm thấy kết quả nào cho "${keyword}"`);
+      } else {
+        setMsg(`Tìm thấy ${data.length} kết quả cho "${keyword}"`);
+      }
+    } catch (e) {
+      setMsg(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const printXe = (x) => {
     const printContent = `
     <h2>Thông tin tiếp nhận xe</h2>
@@ -518,9 +550,46 @@ export default function Xe() {
         </form>
       </section>
 
+      {/* SEARCH */}
+      <section className="bg-white p-4 rounded-xl shadow-md mb-6">
+        <h2 className="font-semibold mb-2">Tra cứu xe</h2>
+
+        <div className="flex flex-col md:flex-row gap-3">
+          <input
+            type="text"
+            placeholder="Nhập biển số, tên chủ xe, điện thoại, hoặc hiệu xe"
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            className="flex-1 p-2 border rounded"
+          />
+
+          <button
+            onClick={searchXe}
+            className="px-4 py-2 bg-green-600 text-white rounded"
+          >
+            Tra cứu
+          </button>
+
+          {searching && (
+            <button
+              onClick={() => {
+                setKeyword("");
+                setSearching(false);
+                load();
+              }}
+              className="px-4 py-2 bg-gray-500 text-white rounded"
+            >
+              Xem tất cả
+            </button>
+          )}
+        </div>
+      </section>
+
       {/* TABLE */}
       <section className="bg-white p-5 rounded-xl shadow-md">
-        <h2 className="text-xl font-semibold mb-3">Danh sách xe</h2>
+        <h2 className="text-xl font-semibold mb-3">
+          {searching ? "Kết quả tra cứu xe" : "Danh sách xe"}
+        </h2>
 
         <div className="overflow-x-auto">
           <table className="w-full border-collapse min-w-max text-sm">
@@ -566,20 +635,6 @@ export default function Xe() {
                       {x.NgayTiepNhanXeSua.split("T")[0]}
                     </td>
                     <td className="border p-2 text-center">
-                      <button
-                        onClick={() => edit(x)}
-                        className="px-3 py-1 bg-green-600 text-white rounded mr-2"
-                      >
-                        Sửa
-                      </button>
-
-                      <button
-                        onClick={() => del(x.MaTiepNhanXeSua)}
-                        className="px-3 py-1 bg-red-600 text-white rounded mr-2"
-                      >
-                        Xóa
-                      </button>
-
                       <button
                         onClick={() => printXe(x)}
                         className="px-3 py-1 bg-gray-700 text-white rounded"
