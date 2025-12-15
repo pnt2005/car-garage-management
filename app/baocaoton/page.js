@@ -57,6 +57,25 @@ export default function BaoCaoTon() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
+      <style jsx global>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+
+          #print-area,
+          #print-area * {
+            visibility: visible;
+          }
+
+          #print-area {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+          }
+        }
+      `}</style>
       <h1 className="text-2xl font-bold mb-4">Báo cáo tồn</h1>
 
       <div className="flex gap-4 mb-4">
@@ -80,11 +99,19 @@ export default function BaoCaoTon() {
         >
           {loading ? "Đang xử lý..." : "Lập/Cập nhật báo cáo"}
         </button>
+        <button
+          onClick={() => window.print()}
+          disabled={!baoCao}
+          className="px-4 py-2 bg-green-600 text-white rounded"
+        >
+          In báo cáo
+        </button>
       </div>
 
       {message && <p className="mb-4 text-green-600">{message}</p>}
 
       {baoCao && (
+        <div id="print-area">
         <table className="w-full table-auto border border-gray-300">
           <thead>
             <tr className="bg-gray-100">
@@ -107,6 +134,7 @@ export default function BaoCaoTon() {
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   );

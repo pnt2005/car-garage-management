@@ -57,8 +57,26 @@ export default function BaoCaoDoanhSo() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Báo cáo doanh số</h1>
+      <style jsx global>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
 
+          #print-area,
+          #print-area * {
+            visibility: visible;
+          }
+
+          #print-area {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+          }
+        }
+      `}</style>
+      <h1 className="text-2xl font-bold mb-4">Báo cáo doanh số</h1>
       <div className="flex gap-4 mb-4">
         <select
           className="p-2 border rounded"
@@ -72,7 +90,6 @@ export default function BaoCaoDoanhSo() {
             </option>
           ))}
         </select>
-
         <button
           onClick={handleLapBaoCao}
           disabled={!thang || loading}
@@ -80,12 +97,19 @@ export default function BaoCaoDoanhSo() {
         >
           {loading ? "Đang xử lý..." : "Lập/Cập nhật báo cáo"}
         </button>
+        <button
+          onClick={() => window.print()}
+          disabled={!baoCao}
+          className="px-4 py-2 bg-green-600 text-white rounded"
+        >
+          In báo cáo
+        </button>
       </div>
 
       {message && <p className="mb-4 text-green-600">{message}</p>}
         
       {baoCao && (
-        <>
+        <div id="print-area">
           <div className="mb-4 p-3 border rounded bg-gray-50">
             <p className="font-semibold">
               Tổng doanh thu tháng {thang}:{" "}
@@ -114,7 +138,7 @@ export default function BaoCaoDoanhSo() {
               ))}
             </tbody>
           </table>
-        </>
+        </div>
       )}
     </div>
   );
