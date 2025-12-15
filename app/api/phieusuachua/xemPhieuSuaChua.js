@@ -30,19 +30,18 @@ export async function xemPhieuSuaChua(bienSo) {
     throw new Error("Xe này chưa có phiếu sửa chữa nào.");
   }
 
-  return phieuList.map(phieu => ({
-    NgaySuaChua: phieu.NgaySuaChua,       // thuộc phiếu
+  return phieuList.map((phieu) => ({
+    NgaySuaChua: phieu.NgaySuaChua, // thuộc phiếu
     ChuXe: phieu.TiepNhanXeSua.ChuXe,
     HieuXe: phieu.TiepNhanXeSua.HieuXe,
-    TongThanhTien: phieu.TongThanhTien,   // tổng tiền phiếu
-    ChiTietPhieuSuaChua: phieu.ChiTietPhieuSuaChua.map(ct => ({
+    TongThanhTien: phieu.TongThanhTien, // tổng tiền phiếu
+    ChiTietPhieuSuaChua: phieu.ChiTietPhieuSuaChua.map((ct) => ({
       TenPhuTung: ct.PhuTung.TenPhuTung,
       SoLuong: ct.SoLuong,
       DonGia: ct.PhuTung.DonGia,
       GiaTienCong: ct.TienCong.GiaTienCong,
       ThanhTien: ct.ThanhTien,
-      NoiDung: ct.NoiDung
-    }))
+      NoiDung: ct.NoiDung,
+    })),
   }));
 }
-
