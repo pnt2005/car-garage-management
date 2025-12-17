@@ -11,30 +11,25 @@ async function getPhieuThuList() {
 
 async function createPhieuThu(body) {
   const { MaChuXe, NgayThuTien, SoTienThu } = body;
-  const soTienThuFloat = parseFloat(SoTienThu);
+  const soTienThuFloat = Number(SoTienThu);
   const maChuXeInt = parseInt(MaChuXe);
 
   if (isNaN(soTienThuFloat) || soTienThuFloat <= 0)
     throw new Error("Số tiền thu không hợp lệ");
 
-  // 1. Lấy thông tin chủ xe và Tham số hệ thống
-  const [chuXe, thamSo] = await Promise.all([
-    prisma.cHUXE.findUnique({ where: { MaChuXe: maChuXeInt } }),
-    prisma.tHAM_SO.findFirst({ where: { id: 1 } }), // Giả định id=1 là mặc định
-  ]);
+  const chuXe = await prisma.cHUXE.findUnique({
+    where: { MaChuXe: maChuXeInt },
+  });
 
   if (!chuXe) throw new Error("Chủ xe không tồn tại");
 
-  const tienNo = Number(chuXe.TienNo); // luôn ≤ 0
+  const tienNo = Number(chuXe.TienNo); // >= 0
 
-  if (tienNo < 0 && soTienThuFloat < thamSo.SoTienNoToiThieu) {
-    throw new Error(
-      `Số tiền thu vượt quá số nợ hiện tại (${Math.abs(tienNo)} VND)`
-    );
+  if (soTienThuFloat > Math.abs(tienNo) && tienNo != 0) {
+    throw new Error(`Số tiền thu vượt quá số nợ hiện tại (${tienNo} VND)`);
   }
 
-  // 3. Chạy Transaction: Tạo phiếu và Cập nhật nợ
-  const result = await prisma.$transaction(async (tx) => {
+  return await prisma.$transaction(async (tx) => {
     const phieu = await tx.pHIEUTHUTIEN.create({
       data: {
         MaChuXe: maChuXeInt,
@@ -49,13 +44,15 @@ async function createPhieuThu(body) {
 
     await tx.cHUXE.update({
       where: { MaChuXe: maChuXeInt },
-      data: { TienNo: { decrement: soTienThuFloat } },
+      data: {
+        TienNo: {
+          decrement: soTienThuFloat,
+        },
+      },
     });
 
     return phieu;
   });
-
-  return result;
 }
 
 async function updatePhieuThu(body) {

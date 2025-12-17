@@ -64,13 +64,11 @@ export default function ThuTienDocLap() {
       );
       const tienNoHienTai = Number(currentChuXe?.TienNo || 0);
 
-      if (tienNoHienTai < 0 && soTienThuFloat > Math.abs(tienNoHienTai)) {
+      if (soTienThuFloat > Math.abs(tienNoHienTai) && tienNoHienTai != 0) {
         setMsg(
           `Số tiền thu (${fmt(
             soTienThuFloat
-          )} VND) không được vượt quá số nợ (${fmt(
-            Math.abs(tienNoHienTai)
-          )} VND).`
+          )} VND) không được vượt quá số nợ (${fmt(tienNoHienTai)} VND).`
         );
         setLoading(false);
         return;
