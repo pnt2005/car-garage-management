@@ -167,20 +167,33 @@ export default function Xe() {
 
       // Xử lý hiệu xe tương tự
       if (!MaHieuXe && form.TenHieuXe) {
-        const r = await fetch("/api/xe", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "hieuxe", TenHieuXe: form.TenHieuXe }),
-        });
+        const normalizedNewName = form.TenHieuXe.trim().toLowerCase();
+        const existingHieu = hieuxes.find(
+          (h) => h.TenHieuXe.trim().toLowerCase() === normalizedNewName
+        );
 
-        const data = await r.json();
-        if (!r.ok) throw new Error(data.error || "Lỗi tạo hiệu xe");
-        MaHieuXe = data.data?.MaHieuXe;
+        if (existingHieu) {
+          MaHieuXe = existingHieu.MaHieuXe;
+          console.log("Hiệu xe đã tồn tại, sử dụng ID:", MaHieuXe);
+        } else {
+          const r = await fetch("/api/xe", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: "hieuxe",
+              TenHieuXe: form.TenHieuXe.trim(),
+            }),
+          });
 
-        // RELOAD danh sách hiệu xe ngay lập tức
-        const rHieu = await fetch("/api/xe?type=hieuxe");
-        const newHieuxes = await rHieu.json();
-        setHieuxes(newHieuxes || []);
+          const data = await r.json();
+          if (!r.ok) throw new Error(data.error || "Lỗi tạo hiệu xe");
+          MaHieuXe = data.data?.MaHieuXe;
+
+          // RELOAD danh sách hiệu xe để cập nhật UI
+          const rHieu = await fetch("/api/xe?type=hieuxe");
+          const newHieuxes = await rHieu.json();
+          setHieuxes(filterDuplicates(newHieuxes || [], "MaHieuXe"));
+        }
       }
 
       // Cập nhật thông tin hiệu xe nếu đang chỉnh sửa
