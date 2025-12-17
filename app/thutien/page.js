@@ -8,10 +8,10 @@ const dateFmt = (d) => (d ? d.split("T")[0] : "");
 export default function ThuTienDocLap() {
   const [phieus, setPhieus] = useState([]);
   const [chuxes, setChuxes] = useState([]);
+  const [printData, setPrintData] = useState(null); // 1. State lưu dữ liệu in
 
   const [form, setForm] = useState({
     MaChuXe: "",
-    // KHÔNG CÓ MaTiepNhanXeSua
     NgayThuTien: dateFmt(new Date().toISOString()),
     SoTienThu: "",
   });
@@ -22,22 +22,16 @@ export default function ThuTienDocLap() {
   const load = async () => {
     setLoading(true);
     try {
-      // Chỉ fetch Phiếu thu tiền và Chủ xe
       const [rPhieu, rChu] = await Promise.all([
-        fetch("/api/thutien"), // Giả định đây là endpoint chứa tất cả phiếu thu
-        fetch("/api/xe?type=chuxe"), // Giả định đây là endpoint lấy danh sách Chủ xe
+        fetch("/api/thutien"),
+        fetch("/api/xe?type=chuxe"),
       ]);
-
       const [dataPhieu, dataChu] = await Promise.all([
         rPhieu.json(),
         rChu.json(),
       ]);
-
       if (rPhieu.ok) setPhieus(dataPhieu || []);
-      else console.error("Lỗi tải phiếu thu:", dataPhieu.error);
-
       if (rChu.ok) setChuxes(dataChu || []);
-      else console.error("Lỗi tải chủ xe:", dataChu.error);
     } catch (e) {
       console.error(e);
       setMsg("Lỗi khi tải dữ liệu");
@@ -58,31 +52,25 @@ export default function ThuTienDocLap() {
     setMsg("");
     try {
       const { MaChuXe, NgayThuTien, SoTienThu } = form;
-
       if (!MaChuXe || !NgayThuTien || !SoTienThu) {
-        setMsg("Vui lòng nhập đầy đủ thông tin (Chủ xe, Ngày thu, Số tiền)");
+        setMsg("Vui lòng nhập đầy đủ thông tin");
         setLoading(false);
         return;
       }
 
       const soTienThuFloat = parseFloat(SoTienThu);
+      const currentChuXe = chuxes.find(
+        (c) => Number(c.MaChuXe) === Number(MaChuXe)
+      );
+      const tienNoHienTai = Number(currentChuXe?.TienNo || 0);
 
-      if (isNaN(soTienThuFloat) || soTienThuFloat <= 0) {
-        setMsg("Số tiền thu phải lớn hơn 0.");
-        setLoading(false);
-        return;
-      }
-
-      const currentChuXe = chuxes.find((c) => c.MaChuXe === parseInt(MaChuXe));
-      const tienNoHienTai = currentChuXe ? currentChuXe.TienNo : 0;
-      const choPhepThuVuotNo = false;
-      if (!choPhepThuVuotNo && soTienThuFloat > tienNoHienTai) {
+      if (tienNoHienTai < 0 && soTienThuFloat > Math.abs(tienNoHienTai)) {
         setMsg(
           `Số tiền thu (${fmt(
             soTienThuFloat
-          )} VND) không được vượt quá Tiền nợ hiện tại (${fmt(
-            tienNoHienTai
-          )} VND) của chủ xe.`
+          )} VND) không được vượt quá số nợ (${fmt(
+            Math.abs(tienNoHienTai)
+          )} VND).`
         );
         setLoading(false);
         return;
@@ -91,7 +79,6 @@ export default function ThuTienDocLap() {
       const body = {
         MaPhieuThuTien: editingId,
         MaChuXe: parseInt(MaChuXe),
-        MaTiepNhanXeSua: null,
         NgayThuTien,
         SoTienThu: soTienThuFloat,
       };
@@ -101,9 +88,12 @@ export default function ThuTienDocLap() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || "Lỗi lưu phiếu");
 
+      const resData = await r.json();
+
+      if (!r.ok) {
+        throw new Error(resData.error || "Lỗi lưu phiếu");
+      }
       await load();
       setMsg(editingId ? "Cập nhật thành công" : "Thêm thành công");
       setForm({
@@ -113,202 +103,236 @@ export default function ThuTienDocLap() {
       });
       setEditingId(null);
     } catch (e) {
-      console.error(e);
       setMsg(e.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const edit = (p) => {
-    setEditingId(p.MaPhieuThuTien);
-    setForm({
-      MaChuXe: p.MaChuXe,
-      NgayThuTien: dateFmt(p.NgayThuTien),
-      SoTienThu: p.SoTienThu,
-    });
-  };
-
-  const del = async (MaPhieuThuTien) => {
-    if (!confirm("Bạn có chắc muốn xóa?")) return;
-    setLoading(true);
-    const prev = phieus;
-    setPhieus(phieus.filter((p) => p.MaPhieuThuTien !== MaPhieuThuTien));
-    try {
-      const r = await fetch("/api/thutien", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ MaPhieuThuTien }),
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || "Lỗi khi xóa");
-      setMsg("Xóa thành công");
-      await load();
-    } catch (e) {
-      console.error(e);
-      setPhieus(prev);
-      setMsg(e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Hàm in phiếu (đã bỏ Biển số)
-  const printPhieu = (p) => {
-    const w = window.open("", "_blank", "width=800,height=600");
-
-    w.document.write(`
-      <html>
-        <head>
-          <title>Phiếu thu tiền #${p.MaPhieuThuTien}</title>
-          <style>
-            body { font-family: Arial; padding: 20px; }
-            h2 { margin-bottom: 10px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            td, th { border: 1px solid #000; padding: 8px; }
-          </style>
-        </head>
-        <body>
-          <h2>PHIẾU THU TIỀN (THU TIỀN NỢ CHUNG)</h2>
-          <p><strong>Mã phiếu:</strong> ${p.MaPhieuThuTien}</p>
-          <p><strong>Chủ xe:</strong> ${p.ChuXe?.TenChuXe || ""}</p>
-          <p><strong>Ngày thu:</strong> ${dateFmt(p.NgayThuTien)}</p>
-
-          <table>
-            <tr>
-              <th>Số tiền thu</th>
-            </tr>
-            <tr>
-              <td>${fmt(p.SoTienThu)}</td>
-            </tr>
-          </table>
-
-          <script>
-            window.print();
-            window.onafterprint = () => window.close();
-          </script>
-        </body>
-      </html>
-    `);
+  // 2. Hàm xử lý in tương tự trang Xe
+  const handlePrint = (p) => {
+    setPrintData(p);
+    setTimeout(() => {
+      window.print();
+    }, 300);
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Thu tiền</h1>
+    <>
+      {/* 3. CSS Style dành riêng cho việc in ấn */}
+      <style jsx global>{`
+        #print-area {
+          display: none;
+        }
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          #print-area,
+          #print-area * {
+            visibility: visible;
+          }
+          #print-area {
+            display: block !important;
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            padding: 20px;
+          }
+        }
+      `}</style>
 
-      <section className="bg-white p-6 rounded-lg shadow-md mb-6">
-        <form onSubmit={submit} className="grid grid-cols-2 gap-4">
-          <select
-            value={form.MaChuXe}
-            onChange={(e) =>
-              onChange(
-                "MaChuXe",
-                e.target.value ? parseInt(e.target.value) : ""
-              )
-            }
-            className="p-2 border rounded"
-          >
-            <option value="">Chọn chủ xe</option>
-            {chuxes.map((c) => (
-              <option key={c.MaChuXe} value={c.MaChuXe}>
-                {c.TenChuXe} (Nợ: {fmt(c.TienNo)})
-              </option>
-            ))}
-          </select>
+      <div className="p-6 max-w-4xl mx-auto">
+        <h1 className="text-2xl font-bold mb-4">Thu tiền</h1>
 
-          <input
-            type="date"
-            value={form.NgayThuTien}
-            onChange={(e) => onChange("NgayThuTien", e.target.value)}
-            className="p-2 border rounded"
-          />
+        {/* Form Thu Tiền */}
+        <section className="bg-white p-6 rounded-lg shadow-md mb-6">
+          <form onSubmit={submit} className="flex flex-col gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Chọn chủ xe */}
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-semibold text-gray-600">
+                  Chủ xe
+                </label>
+                <select
+                  value={form.MaChuXe}
+                  onChange={(e) => onChange("MaChuXe", e.target.value)}
+                  className="p-2 border rounded focus:ring-2 focus:ring-blue-400 outline-none"
+                >
+                  <option value="">Chọn chủ xe</option>
+                  {chuxes.map((c) => (
+                    <option key={c.MaChuXe} value={c.MaChuXe}>
+                      {c.TenChuXe} (Nợ: {fmt(c.TienNo)})
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-          <input
-            type="number"
-            min="0"
-            step="1000"
-            value={form.SoTienThu}
-            onChange={(e) => onChange("SoTienThu", e.target.value)}
-            placeholder="Số tiền thu"
-            className="p-2 border rounded"
-          />
+              {/* Ngày thu */}
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-semibold text-gray-600">
+                  Ngày thu tiền
+                </label>
+                <input
+                  type="date"
+                  value={form.NgayThuTien}
+                  onChange={(e) => onChange("NgayThuTien", e.target.value)}
+                  className="p-2 border rounded focus:ring-2 focus:ring-blue-400 outline-none"
+                />
+              </div>
 
-          <div className="p-2"></div>
+              {/* Số tiền */}
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-semibold text-gray-600">
+                  Số tiền thu (VNĐ)
+                </label>
+                <input
+                  type="number"
+                  step={1000}
+                  value={form.SoTienThu}
+                  onChange={(e) => onChange("SoTienThu", e.target.value)}
+                  placeholder="Ví dụ: 500000"
+                  className="p-2 border rounded focus:ring-2 focus:ring-blue-400 outline-none"
+                />
+              </div>
+            </div>
 
-          <div className="col-span-2 flex gap-2">
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-4 py-2 bg-blue-500 text-white rounded"
-            >
-              {editingId ? "Cập nhật" : "Thu tiền"}
-            </button>
-
-            {editingId && (
+            {/* Nút bấm nằm riêng biệt ở dưới các ô nhập liệu */}
+            <div className="flex items-center gap-3 pt-2">
               <button
-                type="button"
-                onClick={() => {
-                  setEditingId(null);
-                  setForm({
-                    MaChuXe: "",
-                    NgayThuTien: dateFmt(new Date().toISOString()),
-                    SoTienThu: "",
-                  });
-                }}
-                className="px-4 py-2 bg-gray-500 text-white rounded"
+                type="submit"
+                disabled={loading}
+                className={`px-6 py-2 rounded font-bold text-white transition-all ${
+                  editingId
+                    ? "bg-orange-500 hover:bg-orange-600"
+                    : "bg-blue-600 hover:bg-blue-700"
+                } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
               >
-                Hủy
+                {loading
+                  ? "Đang xử lý..."
+                  : editingId
+                  ? "Cập nhật phiếu"
+                  : "Xác nhận thu tiền"}
               </button>
+
+              {editingId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingId(null);
+                    setForm({
+                      MaChuXe: "",
+                      NgayThuTien: dateFmt(new Date().toISOString()),
+                      SoTienThu: "",
+                    });
+                  }}
+                  className="px-6 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-all"
+                >
+                  Hủy bỏ
+                </button>
+              )}
+            </div>
+
+            {msg && (
+              <div
+                className={`text-sm font-medium ${
+                  msg.includes("Lỗi") || msg.includes("không")
+                    ? "text-red-500"
+                    : "text-green-600"
+                }`}
+              >
+                {msg}
+              </div>
             )}
-          </div>
+          </form>
+        </section>
 
-          {msg && <div className="col-span-2 text-green-600">{msg}</div>}
-        </form>
-      </section>
-
-      <section className="bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-xl mb-3">Danh sách phiếu thu tiền</h2>
-
-        {phieus.length === 0 ? (
-          <p className="text-gray-500">Chưa có phiếu thu tiền</p>
-        ) : (
-          <table className="w-full border-collapse border">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="border px-2 py-1">Mã</th>
-                <th className="border px-2 py-1">Chủ xe</th>
-                <th className="border px-2 py-1">Ngày thu</th>
-                <th className="border px-2 py-1">Số tiền</th>
-                <th className="border px-2 py-1">Thao tác</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {/* Lọc ra các phiếu không có MaTiepNhanXeSua nếu cần, 
-                  nhưng tôi sẽ giữ nguyên để hiển thị tất cả nếu API cho phép */}
-              {phieus.map((p) => (
-                <tr key={p.MaPhieuThuTien}>
-                  <td className="border px-2 py-1">{p.MaPhieuThuTien}</td>
-                  <td className="border px-2 py-1">{p.ChuXe?.TenChuXe}</td>
-                  <td className="border px-2 py-1">{dateFmt(p.NgayThuTien)}</td>
-                  <td className="border px-2 py-1">{fmt(p.SoTienThu)}</td>
-
-                  <td className="border px-2 py-1">
-                    <div className="flex justify-center items-center space-x-2">
+        {/* Danh sách phiếu thu */}
+        <section className="bg-white p-6 rounded-lg shadow-md">
+          <h2 className="text-xl mb-3 font-semibold">
+            Danh sách phiếu thu tiền
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse border text-sm">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="border p-2">Mã</th>
+                  <th className="border p-2">Chủ xe</th>
+                  <th className="border p-2">Ngày thu</th>
+                  <th className="border p-2">Số tiền</th>
+                  <th className="border p-2 text-center">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                {phieus.map((p) => (
+                  <tr key={p.MaPhieuThuTien}>
+                    <td className="border p-2">{p.MaPhieuThuTien}</td>
+                    <td className="border p-2">{p.ChuXe?.TenChuXe}</td>
+                    <td className="border p-2">{dateFmt(p.NgayThuTien)}</td>
+                    <td className="border p-2">{fmt(p.SoTienThu)}</td>
+                    <td className="border p-2 text-center">
                       <button
-                        onClick={() => printPhieu(p)}
-                        className="px-3 py-1 bg-gray-700 text-white rounded"
+                        onClick={() => handlePrint(p)}
+                        className="px-3 py-1 bg-gray-700 text-white rounded hover:bg-black"
                       >
                         In
                       </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* 4. Vùng hiển thị nội dung phiếu thu khi in */}
+        {printData && (
+          <div id="print-area">
+            <h2 className="text-2xl font-bold text-center mb-8">
+              PHIẾU THU TIỀN
+            </h2>
+            <div className="space-y-4 text-lg">
+              <p>
+                <b>Mã phiếu thu:</b> {printData.MaPhieuThuTien}
+              </p>
+              <p>
+                <b>Họ tên chủ xe:</b> {printData.ChuXe?.TenChuXe}
+              </p>
+              <p>
+                <b>Địa chỉ:</b>{" "}
+                {printData.ChuXe?.DiaChi ||
+                  "........................................................"}
+              </p>
+              <p>
+                <b>Điện thoại:</b>{" "}
+                {printData.ChuXe?.DienThoai ||
+                  "................................"}
+              </p>
+              <p>
+                <b>Ngày thu tiền:</b> {dateFmt(printData.NgayThuTien)}
+              </p>
+              <p>
+                <b>Số tiền thu:</b>{" "}
+                <span className="text-xl font-bold">
+                  {fmt(printData.SoTienThu)} VNĐ
+                </span>
+              </p>
+            </div>
+
+            <div className="mt-12 flex justify-between px-10">
+              <div className="text-center">
+                <p className="font-semibold">Người nộp tiền</p>
+                <p className="italic text-sm">(Ký và ghi rõ họ tên)</p>
+              </div>
+              <div className="text-center">
+                <p className="font-semibold">Người thu tiền</p>
+                <p className="italic text-sm">(Ký và ghi rõ họ tên)</p>
+              </div>
+            </div>
+          </div>
         )}
-      </section>
-    </div>
+      </div>
+    </>
   );
 }
