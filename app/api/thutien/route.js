@@ -10,42 +10,48 @@ async function getPhieuThuList() {
 }
 
 async function createPhieuThu(body) {
-  // 1. Bỏ MaTiepNhanXeSua khỏi kiểm tra bắt buộc
   const { MaChuXe, NgayThuTien, SoTienThu } = body;
-
-  if (!MaChuXe || !NgayThuTien || !SoTienThu)
-    throw new Error(
-      "Thiếu thông tin PHIEUTHUTIEN bắt buộc: Chủ xe, Ngày thu, Số tiền thu"
-    ); // 2. Xử lý dữ liệu
-
-  const soTienThuFloat = parseFloat(SoTienThu);
+  const soTienThuFloat = Number(SoTienThu);
   const maChuXeInt = parseInt(MaChuXe);
-  const maTiepNhanXeSuaInt = body.MaTiepNhanXeSua
-    ? parseInt(body.MaTiepNhanXeSua)
-    : null; // Lấy hoặc gán null
 
   if (isNaN(soTienThuFloat) || soTienThuFloat <= 0)
-    throw new Error("Số tiền thu không hợp lệ"); // 3. Update TienNo của Chủ xe
+    throw new Error("Số tiền thu không hợp lệ");
 
   const chuXe = await prisma.cHUXE.findUnique({
     where: { MaChuXe: maChuXeInt },
   });
+
   if (!chuXe) throw new Error("Chủ xe không tồn tại");
 
-  await prisma.cHUXE.update({
-    where: { MaChuXe: maChuXeInt },
-    data: { TienNo: chuXe.TienNo - soTienThuFloat },
-  }); // 4. Tạo Phiếu Thu Tiền (DẠNG ĐÃ SỬA LỖI CÚ PHÁP)
+  const tienNo = Number(chuXe.TienNo); // >= 0
 
-  return await prisma.pHIEUTHUTIEN.create({
-    data: {
-      MaChuXe: maChuXeInt, // DÒNG GÂY LỖI: HÃY XÓA TOÀN BỘ PHẦN CHÚ THÍCH NẾU NÓ GÂY RA LỖI
-      MaTiepNhanXeSua: maTiepNhanXeSuaInt, // KHÔNG CÓ BẤT KỲ KÝ TỰ THỪA NÀO TRƯỚC DẤU PHẨY HOẶC TRƯỚC DÒNG TIẾP THEO
+  if (soTienThuFloat > Math.abs(tienNo) && tienNo != 0) {
+    throw new Error(`Số tiền thu vượt quá số nợ hiện tại (${tienNo} VND)`);
+  }
 
-      NgayThuTien: new Date(NgayThuTien),
-      SoTienThu: soTienThuFloat,
-    }, // <-- Đóng ngoặc nhọn của data
-    include: { ChuXe: true, TiepNhanXeSua: true },
+  return await prisma.$transaction(async (tx) => {
+    const phieu = await tx.pHIEUTHUTIEN.create({
+      data: {
+        MaChuXe: maChuXeInt,
+        NgayThuTien: new Date(NgayThuTien),
+        SoTienThu: soTienThuFloat,
+        MaTiepNhanXeSua: body.MaTiepNhanXeSua
+          ? parseInt(body.MaTiepNhanXeSua)
+          : null,
+      },
+      include: { ChuXe: true },
+    });
+
+    await tx.cHUXE.update({
+      where: { MaChuXe: maChuXeInt },
+      data: {
+        TienNo: {
+          decrement: soTienThuFloat,
+        },
+      },
+    });
+
+    return phieu;
   });
 }
 
