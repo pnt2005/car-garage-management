@@ -88,6 +88,17 @@ export async function lapPhieuSuaChua(data) {
       }
     }
 
+    for (const ct of ChiTiet) {
+      await tx.pHUTUNG.update({
+        where: { MaPhuTung: Number(ct.MaPhuTung) },
+        data: {
+          SoLuongTon: {
+            decrement: ct.SoLuong // Giảm số lượng tồn đi đúng bằng số lượng đã dùng
+          }
+        }
+      });
+    }
+
     // ------------------------------------------
     // 3. TÍNH TOÁN CHI TIẾT + TỔNG TIỀN
     // ------------------------------------------

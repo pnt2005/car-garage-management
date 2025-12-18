@@ -102,13 +102,13 @@ export async function GET(req) {
     if (type === "chuxe") return NextResponse.json(await getChuXeList());
     if (type === "hieuxe") return NextResponse.json(await getHieuXeList());
 
-    // 🔍 TRA CỨU
+    // TRA CỨU
     if (keyword) {
       const data = await searchXe(keyword);
       return NextResponse.json(data);
     }
 
-    // 📋 DANH SÁCH FULL
+    // DANH SÁCH FULL
     return NextResponse.json(await getXeList());
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

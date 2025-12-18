@@ -1,13 +1,11 @@
-"use client"
+"use client";
 import { useState, useEffect } from "react";
 
 export default function PhieuSuaChua() {
-  const [bienSoTimKiem, setBienSoTimKiem] = useState("");
-  const [phieuList, setPhieuList] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [phieuList, setPhieuList] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
-  // ---- State cho lập phiếu ----
   const [showModal, setShowModal] = useState(false);
   const [maTiepNhan, setMaTiepNhan] = useState("");
   const [ngaySua, setNgaySua] = useState("");
@@ -15,139 +13,79 @@ export default function PhieuSuaChua() {
     { MaPhuTung: "", SoLuong: 1, MaTienCong: "", NoiDung: "" },
   ]);
 
-  // ---- Data cho dropdowns ----
   const [danhSachXe, setDanhSachXe] = useState([]);
   const [danhSachPhuTung, setDanhSachPhuTung] = useState([]);
   const [danhSachTienCong, setDanhSachTienCong] = useState([]);
 
-  // ----------------------------
-  // Load dữ liệu cho dropdowns
-  // ----------------------------
-  useEffect(() => {
-    const loadDropdownData = async () => {
-      try {
-        // 1. Lấy danh sách xe (TIEPNHANXESUA) - GET /api/xe
-        const xeRes = await fetch("/api/xe");
-        if (!xeRes.ok) {
-          console.error("Lỗi API xe:", await xeRes.text());
-        } else {
-          const xeData = await xeRes.json(); // Trả về array trực tiếp
-          const formatted = xeData.map((item) => ({
-            MaTiepNhanXeSua: item.MaTiepNhanXeSua,
-            BienSo: item.BienSo,
-            TenChuXe: item.ChuXe?.TenChuXe || "",
-            TenHieuXe: item.HieuXe?.TenHieuXe || "",
-            label: `${item.BienSo} - ${item.HieuXe?.TenHieuXe || ""} - ${item.ChuXe?.TenChuXe || ""}`,
-          }));
-          setDanhSachXe(formatted);
-        }
-
-        // 2. Lấy danh sách phụ tùng - GET /api/phutung
-        const phuTungRes = await fetch("/api/phutung");
-        if (!phuTungRes.ok) {
-          console.error("Lỗi API phụ tùng:", await phuTungRes.text());
-        } else {
-          const phuTungData = await phuTungRes.json(); // Trả về array trực tiếp
-          const formatted = phuTungData.map((item) => ({
-            MaPhuTung: item.MaPhuTung,
-            TenPhuTung: item.TenPhuTung,
-            DonGia: item.DonGia,
-            SoLuongTon: item.SoLuongTon || 0,
-            label: `${item.TenPhuTung} (Còn: ${item.SoLuongTon || 0}, Giá: ${item.DonGia.toLocaleString()}đ)`,
-          }));
-          setDanhSachPhuTung(formatted);
-        }
-
-        // 3. Lấy danh sách tiền công - GET /api/tiencong
-        const tienCongRes = await fetch("/api/tiencong");
-        if (!tienCongRes.ok) {
-          console.error("Lỗi API tiền công:", await tienCongRes.text());
-        } else {
-          const tienCongResponse = await tienCongRes.json();
-          const tienCongData = tienCongResponse.data || []; // Có wrap trong .data
-          const formatted = tienCongData.map((item) => ({
-            MaTienCong: item.MaTienCong,
-            TenTienCong: item.TenTienCong,
-            GiaTienCong: item.GiaTienCong,
-            label: `${item.TenTienCong} (${item.GiaTienCong.toLocaleString()}đ)`,
-          }));
-          setDanhSachTienCong(formatted);
-        }
-      } catch (err) {
-        console.error("Lỗi khi load dữ liệu dropdown:", err);
-      }
-    };
-
-    loadDropdownData();
-  }, []);
-
-  // ----------------------------
-  // Hàm xem phiếu sửa chữa
-  // ----------------------------
-  const handleXemPhieu = async (bs) => {
-    if (!bs) return;
+  // 1. Hàm tải danh sách phiếu (Sắp xếp mới nhất lên đầu)
+  const fetchAllPhieu = async () => {
     setLoading(true);
-    setMessage("");
     try {
-      const res = await fetch(`/api/phieusuachua/${bs}`);
+      const res = await fetch("/api/phieusuachua");
       const data = await res.json();
-      if (!res.ok) {
-        setMessage(data.error || "Có lỗi khi lấy dữ liệu");
-        setPhieuList(null);
-        return;
-      }
-      setPhieuList(data.data);
+      if (res.ok) setPhieuList(data.data);
+      else setMessage(data.error || "Có lỗi khi lấy dữ liệu");
     } catch (err) {
       console.error(err);
-      setMessage("Có lỗi xảy ra khi gọi API");
+      setMessage("Có lỗi khi gọi API");
     } finally {
       setLoading(false);
     }
   };
 
-  // Tự động fetch khi thay đổi biển số
+  // 2. Load dữ liệu khởi tạo
   useEffect(() => {
-    if (bienSoTimKiem) handleXemPhieu(bienSoTimKiem);
-    else setPhieuList(null);
-  }, [bienSoTimKiem]);
+    const loadInitialData = async () => {
+      await Promise.all([fetchAllPhieu(), loadDropdownData()]);
+    };
+    loadInitialData();
+  }, []);
 
-  // ----------------------------
-  // HÀM LẬP PHIẾU
-  // ----------------------------
-  const updateChiTiet = (i, key, value) => {
-    const clone = [...chiTiet];
-    clone[i][key] = value;
-    setChiTiet(clone);
+  const loadDropdownData = async () => {
+    try {
+      const [xeRes, ptRes, tcRes] = await Promise.all([
+        fetch("/api/xe"),
+        fetch("/api/phutung"),
+        fetch("/api/tiencong"),
+      ]);
+      
+      const xeData = await xeRes.json();
+      setDanhSachXe(xeData.map((item) => ({
+        MaTiepNhanXeSua: item.MaTiepNhanXeSua,
+        label: `${item.BienSo} - ${item.HieuXe?.TenHieuXe || ""} - ${item.ChuXe?.TenChuXe || ""}`,
+      })));
+
+      const ptData = await ptRes.json();
+      setDanhSachPhuTung(ptData.map((item) => ({
+        MaPhuTung: item.MaPhuTung,
+        label: `${item.TenPhuTung} (Còn: ${item.SoLuongTon || 0}, Giá: ${item.DonGia.toLocaleString()}đ)`,
+      })));
+
+      const tcResponse = await tcRes.json();
+      const tcData = tcResponse.data || [];
+      setDanhSachTienCong(tcData.map((item) => ({
+        MaTienCong: item.MaTienCong,
+        label: `${item.TenTienCong} (${item.GiaTienCong.toLocaleString()}đ)`,
+      })));
+    } catch (err) {
+      console.error("Lỗi load dropdown:", err);
+    }
   };
 
+  // 3. Logic xử lý Chi Tiết (Thêm)
   const addChiTiet = () => {
-    setChiTiet([
-      ...chiTiet,
-      { MaPhuTung: "", SoLuong: 1, MaTienCong: "", NoiDung: "" },
-    ]);
+    setChiTiet([...chiTiet, { MaPhuTung: "", SoLuong: "", MaTienCong: "", NoiDung: "" }]);
   };
 
-  const removeChiTiet = (i) => {
-    if (chiTiet.length === 1) return;
-    setChiTiet(chiTiet.filter((_, idx) => idx !== i));
-  };
-
+  // 4. HÀM LẬP PHIẾU (Gộp logic POST và Refresh)
   const handleLapPhieu = async () => {
-    if (!maTiepNhan) {
-      alert("Vui lòng chọn xe!");
-      return;
-    }
-    if (!ngaySua) {
-      alert("Vui lòng chọn ngày sửa chữa!");
-      return;
-    }
+    if (!maTiepNhan) return alert("Vui lòng chọn xe!");
+    if (!ngaySua) return alert("Vui lòng chọn ngày sửa chữa!");
 
-    // Validate chi tiết
     for (let i = 0; i < chiTiet.length; i++) {
       const ct = chiTiet[i];
       if (!ct.MaPhuTung || !ct.MaTienCong || !ct.NoiDung.trim()) {
-        alert(`Chi tiết ${i + 1} chưa đầy đủ thông tin!`);
-        return;
+        return alert(`Chi tiết ${i + 1} chưa đầy đủ thông tin!`);
       }
     }
 
@@ -163,273 +101,191 @@ export default function PhieuSuaChua() {
       });
 
       const data = await res.json();
-
-      if (!res.ok) {
-        alert("Lỗi: " + data.error);
-        return;
-      }
-
-      alert("Lập phiếu thành công!");
-      setShowModal(false);
       
-      // Reset form
-      setMaTiepNhan("");
-      setNgaySua("");
-      setChiTiet([{ MaPhuTung: "", SoLuong: 1, MaTienCong: "", NoiDung: "" }]);
-      
-      // Refresh danh sách nếu đang xem xe này
-      if (bienSoTimKiem) {
-        handleXemPhieu(bienSoTimKiem);
+      if (res.ok) {
+        setMessage("Lập phiếu thành công!");
+        setShowModal(false);
+        setMaTiepNhan("");
+        setNgaySua("");
+        setChiTiet([{ MaPhuTung: "", SoLuong: "", MaTienCong: "", NoiDung: "" }]);
+        fetchAllPhieu(); // reload danh sách
+      } else {
+        setMessage(data.error || "Có lỗi xảy ra");
       }
     } catch (err) {
-      alert("Lỗi hệ thống: " + err.message);
+      console.error(err);
+      setMessage("Có lỗi xảy ra khi gọi API");
+    } finally {
+      setLoading(false);
     }
   };
 
-  // ----------------------------
-  // UI
-  // ----------------------------
-  return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">Phiếu Sửa Chữa</h1>
-
-      <div className="flex gap-4 mb-6">
-        <input
-          type="text"
-          placeholder="Nhập biển số xe..."
-          value={bienSoTimKiem}
-          onChange={(e) => setBienSoTimKiem(e.target.value)}
-          className="p-2 border rounded flex-1"
-        />
-
-        <button
-          onClick={() => handleXemPhieu(bienSoTimKiem)}
-          disabled={!bienSoTimKiem || loading}
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
-        >
-          {loading ? "Đang tải..." : "Xem phiếu"}
-        </button>
-
+return (
+    <div className="p-6 max-w-7xl mx-auto font-sans">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-gray-800 uppercase tracking-tight">Phiếu Sửa Chữa</h1>
         <button
           onClick={() => setShowModal(true)}
-          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+          className="px-6 py-2 bg-blue-600 text-white rounded font-bold shadow-md hover:bg-blue-700 transition-all uppercase text-sm"
         >
-          + Lập phiếu mới
+          + Lập Phiếu Mới
         </button>
       </div>
 
-      {message && <p className="mb-4 p-3 bg-red-50 text-red-600 rounded border border-red-200">{message}</p>}
-
-      {phieuList && phieuList.length > 0 && (
-        <div className="space-y-6">
-          {phieuList.map((phieu, idx) => (
-            <div key={idx} className="p-5 border rounded-lg bg-white shadow-sm">
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <p className="text-sm text-gray-600">Ngày sửa chữa</p>
-                  <p className="font-semibold">
-                    {new Date(phieu.NgaySuaChua).toLocaleDateString("vi-VN")}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Tổng tiền</p>
-                  <p className="font-semibold text-green-600 text-lg">
-                    {phieu.TongThanhTien.toLocaleString()}₫
-                  </p>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 p-3 rounded mb-4">
-                <p><span className="font-medium">Chủ xe:</span> {phieu.ChuXe.TenChuXe}</p>
-                <p><span className="font-medium">Email:</span> {phieu.ChuXe.Email}</p>
-                <p><span className="font-medium">ĐT:</span> {phieu.ChuXe.DienThoai}</p>
-                <p><span className="font-medium">Hiệu xe:</span> {phieu.HieuXe.TenHieuXe}</p>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full border border-gray-300">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className="border px-3 py-2 text-left">Nội dung</th>
-                      <th className="border px-3 py-2 text-left">Phụ tùng</th>
-                      <th className="border px-3 py-2 text-center">Số lượng</th>
-                      <th className="border px-3 py-2 text-right">Đơn giá</th>
-                      <th className="border px-3 py-2 text-right">Tiền công</th>
-                      <th className="border px-3 py-2 text-right">Thành tiền</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {phieu.ChiTietPhieuSuaChua.map((ct, i) => (
-                      <tr key={i} className="hover:bg-gray-50">
-                        <td className="border px-3 py-2">{ct.NoiDung}</td>
-                        <td className="border px-3 py-2">{ct.TenPhuTung}</td>
-                        <td className="border px-3 py-2 text-center">{ct.SoLuong}</td>
-                        <td className="border px-3 py-2 text-right">
-                          {ct.DonGia.toLocaleString()}₫
-                        </td>
-                        <td className="border px-3 py-2 text-right">
-                          {ct.GiaTienCong.toLocaleString()}₫
-                        </td>
-                        <td className="border px-3 py-2 text-right font-medium">
-                          {ct.ThanhTien.toLocaleString()}₫
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ))}
+      {message && (
+        <div className="mb-4 p-3 bg-blue-50 border-l-4 border-blue-500 text-blue-700 text-sm">
+          {message}
         </div>
       )}
 
-      {phieuList && phieuList.length === 0 && (
-        <div className="text-center py-12 bg-gray-50 rounded-lg">
-          <p className="text-gray-600">Xe này chưa có phiếu sửa chữa nào.</p>
-        </div>
-      )}
+      <div className="overflow-x-auto shadow-sm rounded-lg border border-gray-300">
+        <table className="w-full table-auto border-collapse bg-white text-sm">
+          <thead>
+            <tr className="bg-gray-100 border-b border-gray-300">
+              <th className="border-r border-gray-300 px-4 py-3 text-left font-bold text-gray-700 w-32">Ngày sửa</th>
+              <th className="border-r border-gray-300 px-4 py-3 text-left font-bold text-gray-700 w-56">Thông tin Xe</th>
+              <th className="border-r border-gray-300 px-4 py-3 text-left font-bold text-gray-700">Nội dung công việc</th>
+              <th className="px-4 py-3 text-right font-bold text-gray-700 w-44">Tổng tiền</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr key="loading"><td colSpan="4" className="py-10 text-center text-gray-500 italic">Đang tải dữ liệu từ máy chủ...</td></tr>
+            ) : phieuList.length === 0 ? (
+              <tr key="empty"><td colSpan="4" className="py-10 text-center text-gray-400 font-medium">Chưa có dữ liệu phiếu sửa chữa nào.</td></tr>
+            ) : (
+              phieuList.map((p, idx) => (
+                <tr key={p.MaPhieuSuaChua || idx} className="border-b border-gray-200 hover:bg-blue-50/30 transition-colors">
+                  <td className="border-r border-gray-300 px-4 py-3 align-top text-gray-600 font-medium">
+                    {p.NgaySuaChua ? new Date(p.NgaySuaChua).toLocaleDateString("vi-VN") : "-"}
+                  </td>
+                  <td className="border-r border-gray-300 px-4 py-3 align-top">
+                    <div className="font-bold text-gray-900">{p.TiepNhanXeSua?.BienSo || p.BienSo || "N/A"}</div>
+                    <div className="text-[11px] text-gray-500 uppercase mt-1">
+                      Chủ xe: {p.ChuXe?.TenChuXe || "Trống"} 
+                    </div>
+                    <div className="text-[11px] text-gray-400 italic">
+                      Hiệu xe: {p.HieuXe?.TenHieuXe || "Trống"}
+                    </div>
+                  </td>
+                  <td className="border-r border-gray-300 px-4 py-3">
+                    <div className="space-y-2">
+                      {(p.ChiTietPhieuSuaChua || []).map((ct, i) => (
+                        <div key={`item-${idx}-${i}`} className="text-sm pb-1 border-b border-gray-50 last:border-0">
+                          <p className="font-semibold text-gray-700">• {ct.NoiDung}</p>
+                          <p className="text-[11px] text-gray-500 ml-3">
+                            <span>{ct.TenPhuTung} (SL: {ct.SoLuong}) | Đơn giá: {ct.DonGia?.toLocaleString()}₫ | </span>
+                            <span>Tiền Công: {ct.GiaTienCong?.toLocaleString()}₫ | </span>
+                            <span className="font-bold text-blue-600">Thành tiền: {ct.ThanhTien?.toLocaleString()}₫</span>
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-right font-black text-green-700 text-base">
+                    {p.TongThanhTien?.toLocaleString()}₫
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
 
-      {/* ---------- MODAL LẬP PHIẾU ---------- */}
+      {/* MODAL LẬP PHIẾU - KHÔNG UPDATE/REMOVE */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b p-4">
-              <h2 className="text-xl font-bold">Lập Phiếu Sửa Chữa Mới</h2>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-800">LẬP PHIẾU SỬA CHỮA</h2>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-red-500 text-2xl font-bold">✕</button>
             </div>
 
-            <div className="p-4 space-y-4">
-              {/* Chọn xe */}
-              <div>
-                <label className="block font-medium mb-1">
-                  Chọn xe <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={maTiepNhan}
-                  onChange={(e) => setMaTiepNhan(e.target.value)}
-                  className="border p-2 w-full rounded"
-                >
-                  <option value="">-- Chọn xe --</option>
-                  {danhSachXe.map((xe) => (
-                    <option key={xe.MaTiepNhanXeSua} value={xe.MaTiepNhanXeSua}>
-                      {xe.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Ngày sửa */}
-              <div>
-                <label className="block font-medium mb-1">
-                  Ngày sửa chữa <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  value={ngaySua}
-                  onChange={(e) => setNgaySua(e.target.value)}
-                  className="border p-2 w-full rounded"
-                />
-              </div>
-
-              {/* Chi tiết sửa chữa */}
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="font-medium">
-                    Chi tiết sửa chữa <span className="text-red-500">*</span>
-                  </label>
-                  <button
-                    onClick={addChiTiet}
-                    className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+            <div className="p-6 overflow-y-auto space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Mã tiếp nhận xe *</label>
+                  <select
+                    value={maTiepNhan}
+                    onChange={(e) => setMaTiepNhan(e.target.value)}
+                    className="w-full border-gray-300 border p-2.5 rounded shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
                   >
-                    + Thêm dòng
+                    <option value="">-- Chọn hồ sơ xe --</option>
+                    {danhSachXe.map((xe) => (
+                      <option key={xe.MaTiepNhanXeSua} value={xe.MaTiepNhanXeSua}>{xe.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Ngày lập phiếu *</label>
+                  <input
+                    type="date"
+                    value={ngaySua}
+                    onChange={(e) => setNgaySua(e.target.value)}
+                    className="w-full border-gray-300 border p-2.5 rounded shadow-sm outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-bold text-gray-700 uppercase text-sm tracking-wider">Danh mục sửa chữa</h3>
+                  <button 
+                    onClick={addChiTiet}
+                    className="bg-green-600 text-white px-4 py-1.5 rounded-full text-xs font-bold hover:bg-green-700 shadow-sm"
+                  >
+                    + THÊM NỘI DUNG
                   </button>
                 </div>
 
-                <div className="space-y-3 max-h-96 overflow-y-auto">
+                <div className="space-y-4">
                   {chiTiet.map((ct, i) => (
-                    <div key={i} className="border rounded p-3 bg-gray-50 relative">
-                      {chiTiet.length > 1 && (
-                        <button
-                          onClick={() => removeChiTiet(i)}
-                          className="absolute top-2 right-2 text-red-500 hover:text-red-700 font-bold"
-                        >
-                          ✕
-                        </button>
-                      )}
-
-                      <div className="grid grid-cols-2 gap-2">
-                        {/* Phụ tùng */}
-                        <div>
-                          <label className="block text-sm font-medium mb-1">
-                            Phụ tùng
-                          </label>
-                          <select
-                            value={ct.MaPhuTung}
-                            onChange={(e) =>
-                              updateChiTiet(i, "MaPhuTung", e.target.value)
-                            }
-                            className="border p-2 w-full rounded text-sm"
+                    <div key={`input-${i}`} className="p-4 border border-gray-200 rounded-lg bg-gray-50/50 shadow-inner">
+                      <div className="grid grid-cols-3 gap-3 mb-3">
+                        <div className="col-span-2">
+                          <label className="text-[10px] font-bold text-gray-400 uppercase">Vật tư phụ tùng</label>
+                          <select 
+                            className="w-full border border-gray-300 p-2 rounded text-sm bg-white"
+                            onChange={(e) => (chiTiet[i].MaPhuTung = e.target.value)}
                           >
                             <option value="">-- Chọn phụ tùng --</option>
                             {danhSachPhuTung.map((pt) => (
-                              <option key={pt.MaPhuTung} value={pt.MaPhuTung}>
-                                {pt.label}
-                              </option>
+                              <option key={pt.MaPhuTung} value={pt.MaPhuTung}>{pt.label}</option>
                             ))}
                           </select>
                         </div>
-
-                        {/* Số lượng */}
                         <div>
-                          <label className="block text-sm font-medium mb-1">
-                            Số lượng
-                          </label>
-                          <input
-                            type="number"
-                            min="1"
-                            value={ct.SoLuong}
-                            onChange={(e) =>
-                              updateChiTiet(i, "SoLuong", Number(e.target.value))
-                            }
-                            className="border p-2 w-full rounded text-sm"
+                          <label className="text-[10px] font-bold text-gray-400 uppercase">Số lượng</label>
+                          <input 
+                            type="number" min="1" defaultValue="1"
+                            className="w-full border border-gray-300 p-2 rounded text-sm bg-white text-center"
+                            onChange={(e) => (chiTiet[i].SoLuong = Number(e.target.value))}
                           />
                         </div>
                       </div>
 
-                      {/* Tiền công */}
-                      <div className="mt-2">
-                        <label className="block text-sm font-medium mb-1">
-                          Loại tiền công
-                        </label>
-                        <select
-                          value={ct.MaTienCong}
-                          onChange={(e) =>
-                            updateChiTiet(i, "MaTienCong", e.target.value)
-                          }
-                          className="border p-2 w-full rounded text-sm"
-                        >
-                          <option value="">-- Chọn loại tiền công --</option>
-                          {danhSachTienCong.map((tc) => (
-                            <option key={tc.MaTienCong} value={tc.MaTienCong}>
-                              {tc.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Nội dung */}
-                      <div className="mt-2">
-                        <label className="block text-sm font-medium mb-1">
-                          Nội dung công việc
-                        </label>
-                        <textarea
-                          placeholder="Mô tả chi tiết công việc..."
-                          value={ct.NoiDung}
-                          onChange={(e) =>
-                            updateChiTiet(i, "NoiDung", e.target.value)
-                          }
-                          className="border p-2 w-full rounded text-sm"
-                          rows="2"
-                        />
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <label className="text-[10px] font-bold text-gray-400 uppercase">Loại tiền công</label>
+                          <select 
+                            className="w-full border border-gray-300 p-2 rounded text-sm bg-white"
+                            onChange={(e) => (chiTiet[i].MaTienCong = e.target.value)}
+                          >
+                            <option value="">-- Chọn hình thức --</option>
+                            {danhSachTienCong.map((tc) => (
+                              <option key={tc.MaTienCong} value={tc.MaTienCong}>{tc.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="col-span-2">
+                          <label className="text-[10px] font-bold text-gray-400 uppercase">Nội dung sửa chữa</label>
+                          <input 
+                            type="text"
+                            placeholder="Mô tả công việc sửa chữa..."
+                            className="w-full border border-gray-300 p-2 rounded text-sm bg-white"
+                            onChange={(e) => (chiTiet[i].NoiDung = e.target.value)}
+                          />
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -437,25 +293,23 @@ export default function PhieuSuaChua() {
               </div>
             </div>
 
-            {/* Footer buttons */}
-            <div className="sticky bottom-0 bg-white border-t p-4 flex justify-end gap-3">
-              <button
-                onClick={() => setShowModal(false)}
-                className="px-4 py-2 border rounded hover:bg-gray-50"
+            <div className="p-4 border-t bg-gray-50 flex justify-end gap-3">
+              <button 
+                onClick={() => setShowModal(false)} 
+                className="px-6 py-2 border border-gray-300 rounded text-gray-600 font-bold hover:bg-gray-100 transition-colors uppercase text-xs"
               >
-                Hủy
+                Hủy bỏ
               </button>
-
-              <button
+              <button 
                 onClick={handleLapPhieu}
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                disabled={loading}
+                className="px-10 py-2 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 disabled:opacity-50 shadow-lg uppercase text-xs tracking-widest"
               >
-                Lập phiếu
+                {loading ? "Đang xử lý..." : "Lưu & Hoàn Tất"}
               </button>
             </div>
           </div>
         </div>
       )}
     </div>
-  );
-}
+  );}

@@ -1,8 +1,6 @@
 import { prisma } from "@/app/lib/db.js";
 
 /**
- * Lấy tất cả phiếu sửa chữa của một xe theo biển số
- * Trả về gọn gàng như xemBaoCaoDoanhSo
  * @param {string} bienSo - Biển số xe
  * @returns {Promise<Array>} Danh sách phiếu sửa chữa
  */
@@ -34,6 +32,7 @@ export async function xemPhieuSuaChua(bienSo) {
     NgaySuaChua: phieu.NgaySuaChua, // thuộc phiếu
     ChuXe: phieu.TiepNhanXeSua.ChuXe,
     HieuXe: phieu.TiepNhanXeSua.HieuXe,
+    BienSo: phieu.TiepNhanXeSua.BienSo,
     TongThanhTien: phieu.TongThanhTien, // tổng tiền phiếu
     ChiTietPhieuSuaChua: phieu.ChiTietPhieuSuaChua.map((ct) => ({
       TenPhuTung: ct.PhuTung.TenPhuTung,
