@@ -1,14 +1,18 @@
 "use client";
 import { useEffect, useState } from "react";
 
-export default function PhieuThuTien() {
+// Hàm định dạng tiền tệ và ngày tháng
+const fmt = (v) => new Intl.NumberFormat("vi-VN").format(v || 0);
+const dateFmt = (d) => (d ? d.split("T")[0] : "");
+
+export default function ThuTienDocLap() {
   const [phieus, setPhieus] = useState([]);
   const [chuxes, setChuxes] = useState([]);
-  // keep MaTiepNhanXeSua in form for existing records, but we no longer require selecting a repair invoice
+  const [printData, setPrintData] = useState(null); // 1. State lưu dữ liệu in
+
   const [form, setForm] = useState({
     MaChuXe: "",
-    MaTiepNhanXeSua: "",
-    NgayThuTien: "",
+    NgayThuTien: dateFmt(new Date().toISOString()),
     SoTienThu: "",
   });
   const [editingId, setEditingId] = useState(null);
@@ -22,7 +26,10 @@ export default function PhieuThuTien() {
         fetch("/api/thutien"),
         fetch("/api/xe?type=chuxe"),
       ]);
-      const [dataPhieu, dataChu] = await Promise.all([rPhieu.json(), rChu.json()]);
+      const [dataPhieu, dataChu] = await Promise.all([
+        rPhieu.json(),
+        rChu.json(),
+      ]);
       if (rPhieu.ok) setPhieus(dataPhieu || []);
       if (rChu.ok) setChuxes(dataChu || []);
     } catch (e) {
@@ -44,184 +51,286 @@ export default function PhieuThuTien() {
     setLoading(true);
     setMsg("");
     try {
-      const { MaChuXe, MaTiepNhanXeSua, NgayThuTien, SoTienThu } = form;
+      const { MaChuXe, NgayThuTien, SoTienThu } = form;
       if (!MaChuXe || !NgayThuTien || !SoTienThu) {
         setMsg("Vui lòng nhập đầy đủ thông tin");
         setLoading(false);
         return;
       }
 
-      const r = await fetch("/api/phieuthutien", {
+      const soTienThuFloat = parseFloat(SoTienThu);
+      const currentChuXe = chuxes.find(
+        (c) => Number(c.MaChuXe) === Number(MaChuXe)
+      );
+      const tienNoHienTai = Number(currentChuXe?.TienNo || 0);
+
+      if (soTienThuFloat > Math.abs(tienNoHienTai) && tienNoHienTai != 0) {
+        setMsg(
+          `Số tiền thu (${fmt(
+            soTienThuFloat
+          )} VND) không được vượt quá số nợ (${fmt(tienNoHienTai)} VND).`
+        );
+        setLoading(false);
+        return;
+      }
+
+      const body = {
+        MaPhieuThuTien: editingId,
+        MaChuXe: parseInt(MaChuXe),
+        NgayThuTien,
+        SoTienThu: soTienThuFloat,
+      };
+
+      const r = await fetch("/api/thutien", {
         method: editingId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          MaPhieuThuTien: editingId,
-          MaChuXe,
-          MaTiepNhanXeSua: MaTiepNhanXeSua || null,
-          NgayThuTien,
-          SoTienThu,
-        }),
+        body: JSON.stringify(body),
       });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || "Lỗi lưu phiếu");
 
+      const resData = await r.json();
+
+      if (!r.ok) {
+        throw new Error(resData.error || "Lỗi lưu phiếu");
+      }
       await load();
       setMsg(editingId ? "Cập nhật thành công" : "Thêm thành công");
       setForm({
         MaChuXe: "",
-        MaTiepNhanXeSua: "",
-        NgayThuTien: "",
+        NgayThuTien: dateFmt(new Date().toISOString()),
         SoTienThu: "",
       });
       setEditingId(null);
     } catch (e) {
-      console.error(e);
       setMsg(e.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const edit = (p) => {
-    setEditingId(p.MaPhieuThuTien);
-    setForm({
-      MaChuXe: p.MaChuXe,
-      MaTiepNhanXeSua: p.MaTiepNhanXeSua,
-      NgayThuTien: p.NgayThuTien.split("T")[0],
-      SoTienThu: p.SoTienThu,
-    });
-  };
-
-  const del = async (MaPhieuThuTien) => {
-    if (!confirm("Bạn có chắc muốn xóa?")) return;
-    setLoading(true);
-    const prev = phieus;
-    setPhieus(phieus.filter((p) => p.MaPhieuThuTien !== MaPhieuThuTien));
-    try {
-      const r = await fetch("/api/phieuthutien", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ MaPhieuThuTien }),
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || "Lỗi khi xóa");
-      setMsg("Xóa thành công");
-    } catch (e) {
-      console.error(e);
-      setPhieus(prev);
-      setMsg(e.message);
-    } finally {
-      setLoading(false);
-    }
+  // 2. Hàm xử lý in tương tự trang Xe
+  const handlePrint = (p) => {
+    setPrintData(p);
+    setTimeout(() => {
+      window.print();
+    }, 300);
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Thu tiền</h1>
-      <section className="bg-white p-6 rounded-lg shadow-md mb-6">
-        <form onSubmit={submit} className="grid grid-cols-2 gap-4">
-          <select
-            value={form.MaChuXe}
-            onChange={(e) => onChange("MaChuXe", parseInt(e.target.value))}
-            className="p-2 border rounded"
-          >
-            <option value="">Chọn chủ xe</option>
-            {chuxes.map((c) => (
-              <option key={c.MaChuXe} value={c.MaChuXe}>
-                {c.TenChuXe} (Nợ: {c.TienNo})
-              </option>
-            ))}
-          </select>
-          {/* Phiếu sửa xe selector removed as requested */}
-          <input
-            type="date"
-            value={form.NgayThuTien}
-            onChange={(e) => onChange("NgayThuTien", e.target.value)}
-            className="p-2 border rounded"
-          />
-          <input
-            type="number"
-            value={form.SoTienThu}
-            onChange={(e) => onChange("SoTienThu", e.target.value)}
-            placeholder="Số tiền thu"
-            className="p-2 border rounded"
-          />
-          <div className="col-span-2 flex gap-2">
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-4 py-2 bg-blue-500 text-white rounded"
-            >
-              {editingId ? "Cập nhật" : "Thu tiền"}
-            </button>
-            {editingId && (
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingId(null);
-                  setForm({
-                    MaChuXe: "",
-                    MaTiepNhanXeSua: "",
-                    NgayThuTien: "",
-                    SoTienThu: "",
-                  });
-                }}
-                className="px-4 py-2 bg-gray-500 text-white rounded"
-              >
-                Hủy
-              </button>
-            )}
-          </div>
-          {msg && <div className="col-span-2 text-green-600">{msg}</div>}
-        </form>
-      </section>
+    <>
+      {/* 3. CSS Style dành riêng cho việc in ấn */}
+      <style jsx global>{`
+        #print-area {
+          display: none;
+        }
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          #print-area,
+          #print-area * {
+            visibility: visible;
+          }
+          #print-area {
+            display: block !important;
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            padding: 20px;
+          }
+        }
+      `}</style>
 
-      <section className="bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-xl mb-3">Danh sách phiếu thu tiền</h2>
-        {phieus.length === 0 ? (
-          <p className="text-gray-500">Chưa có phiếu thu tiền</p>
-        ) : (
-          <table className="w-full border-collapse border">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="border px-2 py-1">Mã</th>
-                <th className="border px-2 py-1">Chủ xe</th>
-                {/* Phiếu sửa xe column removed */}
-                <th className="border px-2 py-1">Ngày thu</th>
-                <th className="border px-2 py-1">Số tiền</th>
-                <th className="border px-2 py-1">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              {phieus.map((p) => (
-                <tr key={p.MaPhieuThuTien}>
-                  <td className="border px-2 py-1">{p.MaPhieuThuTien}</td>
-                  <td className="border px-2 py-1">{p.ChuXe?.TenChuXe}</td>
-                  {/* Phiếu sửa xe cell removed */}
-                  <td className="border px-2 py-1">
-                    {p.NgayThuTien.split("T")[0]}
-                  </td>
-                  <td className="border px-2 py-1">{p.SoTienThu}</td>
-                  <td className="border px-2 py-1 flex gap-2">
-                    <button
-                      onClick={() => edit(p)}
-                      className="px-3 py-1 bg-teal-500 text-white rounded"
-                    >
-                      Sửa
-                    </button>
-                    <button
-                      onClick={() => del(p.MaPhieuThuTien)}
-                      className="px-3 py-1 bg-red-500 text-white rounded"
-                    >
-                      Xóa
-                    </button>
-                  </td>
+      <div className="p-6 max-w-4xl mx-auto">
+        <h1 className="text-2xl font-bold mb-4">Thu tiền</h1>
+
+        {/* Form Thu Tiền */}
+        <section className="bg-white p-6 rounded-lg shadow-md mb-6">
+          <form onSubmit={submit} className="flex flex-col gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Chọn chủ xe */}
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-semibold text-gray-600">
+                  Chủ xe
+                </label>
+                <select
+                  value={form.MaChuXe}
+                  onChange={(e) => onChange("MaChuXe", e.target.value)}
+                  className="p-2 border rounded focus:ring-2 focus:ring-blue-400 outline-none"
+                >
+                  <option value="">Chọn chủ xe</option>
+                  {chuxes.map((c) => (
+                    <option key={c.MaChuXe} value={c.MaChuXe}>
+                      {c.TenChuXe} (Nợ: {fmt(c.TienNo)})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Ngày thu */}
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-semibold text-gray-600">
+                  Ngày thu tiền
+                </label>
+                <input
+                  type="date"
+                  value={form.NgayThuTien}
+                  onChange={(e) => onChange("NgayThuTien", e.target.value)}
+                  className="p-2 border rounded focus:ring-2 focus:ring-blue-400 outline-none"
+                />
+              </div>
+
+              {/* Số tiền */}
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-semibold text-gray-600">
+                  Số tiền thu (VNĐ)
+                </label>
+                <input
+                  type="number"
+                  step={1000}
+                  value={form.SoTienThu}
+                  onChange={(e) => onChange("SoTienThu", e.target.value)}
+                  placeholder="Ví dụ: 500000"
+                  className="p-2 border rounded focus:ring-2 focus:ring-blue-400 outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Nút bấm nằm riêng biệt ở dưới các ô nhập liệu */}
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="submit"
+                disabled={loading}
+                className={`px-6 py-2 rounded font-bold text-white transition-all ${
+                  editingId
+                    ? "bg-orange-500 hover:bg-orange-600"
+                    : "bg-blue-600 hover:bg-blue-700"
+                } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
+              >
+                {loading
+                  ? "Đang xử lý..."
+                  : editingId
+                  ? "Cập nhật phiếu"
+                  : "Xác nhận thu tiền"}
+              </button>
+
+              {editingId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingId(null);
+                    setForm({
+                      MaChuXe: "",
+                      NgayThuTien: dateFmt(new Date().toISOString()),
+                      SoTienThu: "",
+                    });
+                  }}
+                  className="px-6 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-all"
+                >
+                  Hủy bỏ
+                </button>
+              )}
+            </div>
+
+            {msg && (
+              <div
+                className={`text-sm font-medium ${
+                  msg.includes("Lỗi") || msg.includes("không")
+                    ? "text-red-500"
+                    : "text-green-600"
+                }`}
+              >
+                {msg}
+              </div>
+            )}
+          </form>
+        </section>
+
+        {/* Danh sách phiếu thu */}
+        <section className="bg-white p-6 rounded-lg shadow-md">
+          <h2 className="text-xl mb-3 font-semibold">
+            Danh sách phiếu thu tiền
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse border text-sm">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="border p-2">Mã</th>
+                  <th className="border p-2">Chủ xe</th>
+                  <th className="border p-2">Ngày thu</th>
+                  <th className="border p-2">Số tiền</th>
+                  <th className="border p-2 text-center">Thao tác</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {phieus.map((p) => (
+                  <tr key={p.MaPhieuThuTien}>
+                    <td className="border p-2">{p.MaPhieuThuTien}</td>
+                    <td className="border p-2">{p.ChuXe?.TenChuXe}</td>
+                    <td className="border p-2">{dateFmt(p.NgayThuTien)}</td>
+                    <td className="border p-2">{fmt(p.SoTienThu)}</td>
+                    <td className="border p-2 text-center">
+                      <button
+                        onClick={() => handlePrint(p)}
+                        className="px-3 py-1 bg-gray-700 text-white rounded hover:bg-black"
+                      >
+                        In
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* 4. Vùng hiển thị nội dung phiếu thu khi in */}
+        {printData && (
+          <div id="print-area">
+            <h2 className="text-2xl font-bold text-center mb-8">
+              PHIẾU THU TIỀN
+            </h2>
+            <div className="space-y-4 text-lg">
+              <p>
+                <b>Mã phiếu thu:</b> {printData.MaPhieuThuTien}
+              </p>
+              <p>
+                <b>Họ tên chủ xe:</b> {printData.ChuXe?.TenChuXe}
+              </p>
+              <p>
+                <b>Địa chỉ:</b>{" "}
+                {printData.ChuXe?.DiaChi ||
+                  "........................................................"}
+              </p>
+              <p>
+                <b>Điện thoại:</b>{" "}
+                {printData.ChuXe?.DienThoai ||
+                  "................................"}
+              </p>
+              <p>
+                <b>Ngày thu tiền:</b> {dateFmt(printData.NgayThuTien)}
+              </p>
+              <p>
+                <b>Số tiền thu:</b>{" "}
+                <span className="text-xl font-bold">
+                  {fmt(printData.SoTienThu)} VNĐ
+                </span>
+              </p>
+            </div>
+
+            <div className="mt-12 flex justify-between px-10">
+              <div className="text-center">
+                <p className="font-semibold">Người nộp tiền</p>
+                <p className="italic text-sm">(Ký và ghi rõ họ tên)</p>
+              </div>
+              <div className="text-center">
+                <p className="font-semibold">Người thu tiền</p>
+                <p className="italic text-sm">(Ký và ghi rõ họ tên)</p>
+              </div>
+            </div>
+          </div>
         )}
-      </section>
-    </div>
+      </div>
+    </>
   );
 }

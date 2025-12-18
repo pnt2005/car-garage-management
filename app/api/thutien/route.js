@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/db.js";
 
-// ===== PHIEUTHUTIEN =====
+// ===== PHIEUTHUTIEN (ĐÃ CHỈNH SỬA) =====
 async function getPhieuThuList() {
   return await prisma.pHIEUTHUTIEN.findMany({
     include: { ChuXe: true, TiepNhanXeSua: true },
@@ -10,45 +10,66 @@ async function getPhieuThuList() {
 }
 
 async function createPhieuThu(body) {
-  const { MaChuXe, MaTiepNhanXeSua, NgayThuTien, SoTienThu } = body;
-  if (!MaChuXe || !MaTiepNhanXeSua || !NgayThuTien || !SoTienThu)
-    throw new Error("Thiếu thông tin PHIEUTHUTIEN bắt buộc");
-  // Update TienNo của Chủ xe
-  const chuXe = await prisma.cHUXE.findUnique({ where: { MaChuXe } });
-  if (!chuXe) throw new Error("Chủ xe không tồn tại");
+  const { MaChuXe, NgayThuTien, SoTienThu } = body;
+  const soTienThuFloat = Number(SoTienThu);
+  const maChuXeInt = parseInt(MaChuXe);
 
-  await prisma.cHUXE.update({
-    where: { MaChuXe },
-    data: { TienNo: chuXe.TienNo - parseFloat(SoTienThu) },
+  if (isNaN(soTienThuFloat) || soTienThuFloat <= 0)
+    throw new Error("Số tiền thu không hợp lệ");
+
+  const chuXe = await prisma.cHUXE.findUnique({
+    where: { MaChuXe: maChuXeInt },
   });
 
-  return await prisma.pHIEUTHUTIEN.create({
-    data: {
-      MaChuXe,
-      MaTiepNhanXeSua,
-      NgayThuTien: new Date(NgayThuTien),
-      SoTienThu: parseFloat(SoTienThu),
-    },
+  if (!chuXe) throw new Error("Chủ xe không tồn tại");
+
+  const tienNo = Number(chuXe.TienNo); // >= 0
+
+  if (soTienThuFloat > Math.abs(tienNo) && tienNo != 0) {
+    throw new Error(`Số tiền thu vượt quá số nợ hiện tại (${tienNo} VND)`);
+  }
+
+  return await prisma.$transaction(async (tx) => {
+    const phieu = await tx.pHIEUTHUTIEN.create({
+      data: {
+        MaChuXe: maChuXeInt,
+        NgayThuTien: new Date(NgayThuTien),
+        SoTienThu: soTienThuFloat,
+        MaTiepNhanXeSua: body.MaTiepNhanXeSua
+          ? parseInt(body.MaTiepNhanXeSua)
+          : null,
+      },
+      include: { ChuXe: true },
+    });
+
+    await tx.cHUXE.update({
+      where: { MaChuXe: maChuXeInt },
+      data: {
+        TienNo: {
+          decrement: soTienThuFloat,
+        },
+      },
+    });
+
+    return phieu;
   });
 }
 
 async function updatePhieuThu(body) {
-  const { MaPhieuThuTien, MaChuXe, MaTiepNhanXeSua, NgayThuTien, SoTienThu } =
-    body;
-  if (
-    !MaPhieuThuTien ||
-    !MaChuXe ||
-    !MaTiepNhanXeSua ||
-    !NgayThuTien ||
-    !SoTienThu
-  )
+  // Bỏ MaTiepNhanXeSua khỏi kiểm tra bắt buộc
+  const { MaPhieuThuTien, MaChuXe, NgayThuTien, SoTienThu } = body;
+  if (!MaPhieuThuTien || !MaChuXe || !NgayThuTien || !SoTienThu)
     throw new Error("Thiếu thông tin PHIEUTHUTIEN để cập nhật");
+
+  const maTiepNhanXeSuaInt = body.MaTiepNhanXeSua
+    ? parseInt(body.MaTiepNhanXeSua)
+    : null;
 
   return await prisma.pHIEUTHUTIEN.update({
     where: { MaPhieuThuTien: parseInt(MaPhieuThuTien) },
     data: {
-      MaChuXe,
-      MaTiepNhanXeSua,
+      MaChuXe: parseInt(MaChuXe),
+      MaTiepNhanXeSua: maTiepNhanXeSuaInt, // Đã chỉnh sửa để truyền null an toàn
       NgayThuTien: new Date(NgayThuTien),
       SoTienThu: parseFloat(SoTienThu),
     },
@@ -56,12 +77,14 @@ async function updatePhieuThu(body) {
 }
 
 async function deletePhieuThu(MaPhieuThuTien) {
+  // *LƯU Ý*: Nếu bạn muốn hoàn lại TienNo khi xóa, bạn phải truyền MaChuXe và SoTienThu
+  // từ client và thêm logic hoàn tiền vào đây.
   return await prisma.pHIEUTHUTIEN.delete({
     where: { MaPhieuThuTien: parseInt(MaPhieuThuTien) },
   });
 }
 
-// ===== MAIN API HANDLER =====
+// ===== MAIN API HANDLER (GIỮ NGUYÊN) =====
 export async function GET(req) {
   try {
     return NextResponse.json(await getPhieuThuList());

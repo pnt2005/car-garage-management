@@ -99,6 +99,14 @@ export async function POST(req) {
         include: { ChiTietNhapPhuTung: { include: { PhuTung: true } } },
       });
 
+      // Increase inventory quantity (SoLuongTon) for each imported part
+      for (const detail of detailsWithIds) {
+        await tx.pHUTUNG.update({
+          where: { MaPhuTung: detail.MaPhuTung },
+          data: { SoLuongTon: { increment: detail.SoLuong } },
+        });
+      }
+
       return phieu;
     });
 
@@ -128,6 +136,17 @@ export async function DELETE(req) {
     }
 
     await prisma.$transaction(async (tx) => {
+      // Get the details before deleting to decrease inventory
+      const details = await tx.cHITIETNHAPPHUTUNG.findMany({ where: { MaNhapPhuTung: id } });
+      
+      // Decrease inventory quantity (SoLuongTon) for each part
+      for (const detail of details) {
+        await tx.pHUTUNG.update({
+          where: { MaPhuTung: detail.MaPhuTung },
+          data: { SoLuongTon: { decrement: detail.SoLuong } },
+        });
+      }
+
       await tx.cHITIETNHAPPHUTUNG.deleteMany({ where: { MaNhapPhuTung: id } });
       await tx.nHAPPHUTUNG.delete({ where: { MaNhapPhuTung: id } });
     });
