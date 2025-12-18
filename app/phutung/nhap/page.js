@@ -304,13 +304,6 @@ export default function NhapPhuTung() {
                           <p className="font-bold text-lg text-green-600">
                             {fmt(phieu.TongTienNhap)}₫
                           </p>
-                          <button
-                            type="button"
-                            onClick={() => deletePhieu(phieu.MaNhapPhuTung)}
-                            className="mt-2 px-3 py-1 bg-red-500 text-white rounded text-sm"
-                          >
-                            Xóa phiếu
-                          </button>
                         </div>
                       </div>
 
