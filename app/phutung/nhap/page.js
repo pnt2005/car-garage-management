@@ -191,7 +191,7 @@ export default function NhapPhuTung() {
                     <div key={idx} className="flex gap-2 items-end">
                       <input
                         type="text"
-                        value={ct.TenPhuTung}
+                        value={ct.TenPhuTung ?? ""}
                         onChange={(e) => updateChiTiet(idx, "TenPhuTung", e.target.value)}
                         placeholder="Tên phụ tùng"
                         className="flex-1 p-2 border rounded"
