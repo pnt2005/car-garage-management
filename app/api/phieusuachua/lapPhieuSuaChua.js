@@ -1,10 +1,9 @@
 import { prisma } from "@/app/lib/db.js";
-import { xemPhieuSuaChua } from "./xemPhieuSuaChua.js";
 
 /**
  * Lập phiếu sửa chữa cho một xe
  * @param {Object} data
- * @param {string} data.BienSo
+ * @param {number} data.MaTiepNhanXeSua - Mã tiếp nhận xe sửa (thay vì BienSo)
  * @param {string} data.NgaySuaChua
  * @param {Array} data.ChiTiet [{ MaPhuTung, SoLuong, MaTienCong, NoiDung }]
  */
@@ -16,9 +15,9 @@ export async function lapPhieuSuaChua(data) {
     throw new Error("Dữ liệu gửi lên không hợp lệ.");
   }
 
-  const { BienSo, NgaySuaChua, ChiTiet } = data;
+  const { MaTiepNhanXeSua, NgaySuaChua, ChiTiet } = data;
 
-  if (!BienSo) throw new Error("Thiếu Biển số.");
+  if (!MaTiepNhanXeSua) throw new Error("Thiếu Mã tiếp nhận xe sửa.");
   if (!NgaySuaChua) throw new Error("Thiếu Ngày sửa chữa.");
   if (!Array.isArray(ChiTiet) || ChiTiet.length === 0) {
     throw new Error("Chi tiết sửa chữa không hợp lệ.");
@@ -42,20 +41,19 @@ export async function lapPhieuSuaChua(data) {
   // -----------------------------
   return await prisma.$transaction(async (tx) => {
     // 1. Tìm hồ sơ tiếp nhận
-    const tiepNhan = await tx.tIEPNHANXESUA.findFirst({
-      where: { BienSo },
-      orderBy: { MaTiepNhanXeSua: "desc" }, // lấy hồ sơ mới nhất
+    const tiepNhan = await tx.tIEPNHANXESUA.findUnique({
+      where: { MaTiepNhanXeSua: Number(MaTiepNhanXeSua) },
     });
 
     if (!tiepNhan) {
-      throw new Error("Xe này chưa làm thủ tục tiếp nhận sửa chữa.");
+      throw new Error("Không tìm thấy hồ sơ tiếp nhận xe sửa.");
     }
 
     // ------------------------------------------
     // 2. BULK FETCH PHU TUNG + TIEN CONG
     // ------------------------------------------
-    const listMaPhuTung = ChiTiet.map((ct) => ct.MaPhuTung);
-    const listMaTienCong = ChiTiet.map((ct) => ct.MaTienCong);
+    const listMaPhuTung = ChiTiet.map((ct) => Number(ct.MaPhuTung));
+    const listMaTienCong = ChiTiet.map((ct) => Number(ct.MaTienCong));
 
     const phuTungs = await tx.pHUTUNG.findMany({
       where: { MaPhuTung: { in: listMaPhuTung } },
@@ -72,11 +70,12 @@ export async function lapPhieuSuaChua(data) {
     const mapTienCong = Object.fromEntries(
       tienCongs.map((t) => [t.MaTienCong, t])
     );
+    
     // ------------------------------------------
     // 2.5 KIỂM TRA TỒN KHO
     // ------------------------------------------
     for (const ct of ChiTiet) {
-      const pt = mapPhuTung[ct.MaPhuTung];
+      const pt = mapPhuTung[Number(ct.MaPhuTung)];
 
       if (!pt) {
         throw new Error(`Phụ tùng ${ct.MaPhuTung} không tồn tại`);
@@ -84,7 +83,7 @@ export async function lapPhieuSuaChua(data) {
 
       if (pt.SoLuongTon < ct.SoLuong) {
         throw new Error(
-          `Phụ tùng ${ct.MaPhuTung} không đủ tồn kho (còn ${pt.SoLuongTon}, cần ${ct.SoLuong})`
+          `Phụ tùng "${pt.TenPhuTung}" không đủ tồn kho (còn ${pt.SoLuongTon}, cần ${ct.SoLuong})`
         );
       }
     }
@@ -96,9 +95,9 @@ export async function lapPhieuSuaChua(data) {
     const chiTietAfterCalc = [];
 
     for (const ct of ChiTiet) {
-      const phuTung = mapPhuTung[ct.MaPhuTung];
-
-      const tienCong = mapTienCong[ct.MaTienCong];
+      const phuTung = mapPhuTung[Number(ct.MaPhuTung)];
+      const tienCong = mapTienCong[Number(ct.MaTienCong)];
+      
       if (!tienCong) throw new Error(`Tiền công không tồn tại: ${ct.MaTienCong}`);
 
       const donGia = Number(phuTung.DonGia);
@@ -110,10 +109,9 @@ export async function lapPhieuSuaChua(data) {
       chiTietAfterCalc.push({
         NoiDung: ct.NoiDung,
         SoLuong: ct.SoLuong,
-        DonGia: donGia,
         ThanhTien: thanhTien,
-        MaPhuTung: ct.MaPhuTung,
-        MaTienCong: ct.MaTienCong,
+        MaPhuTung: Number(ct.MaPhuTung),
+        MaTienCong: Number(ct.MaTienCong),
       });
     }
 
@@ -129,18 +127,46 @@ export async function lapPhieuSuaChua(data) {
           create: chiTietAfterCalc.map((ct) => ({
             NoiDung: ct.NoiDung,
             SoLuong: ct.SoLuong,
-            DonGia: ct.DonGia,
             ThanhTien: ct.ThanhTien,
             MaPhuTung: ct.MaPhuTung,
             MaTienCong: ct.MaTienCong,
           })),
         },
       },
+      include: {
+        TiepNhanXeSua: {
+          include: {
+            ChuXe: true,
+            HieuXe: true,
+          },
+        },
+        ChiTietPhieuSuaChua: {
+          include: {
+            PhuTung: true,
+            TienCong: true,
+          },
+        },
+      },
     });
 
     // ------------------------------------------
-    // 5. TRẢ VỀ PHIẾU VỪA TẠO — THEO ID (CHUẨN)
+    // 5. TRẢ VỀ PHIẾU VỪA TẠO
     // ------------------------------------------
-    return await xemPhieuSuaChua({ MaPhieuSuaChua: phieu.MaPhieuSuaChua });
+    return {
+      MaPhieuSuaChua: phieu.MaPhieuSuaChua,
+      NgaySuaChua: phieu.NgaySuaChua,
+      TongThanhTien: phieu.TongThanhTien,
+      BienSo: phieu.TiepNhanXeSua.BienSo,
+      ChuXe: phieu.TiepNhanXeSua.ChuXe,
+      HieuXe: phieu.TiepNhanXeSua.HieuXe,
+      ChiTietPhieuSuaChua: phieu.ChiTietPhieuSuaChua.map(ct => ({
+        NoiDung: ct.NoiDung,
+        SoLuong: ct.SoLuong,
+        ThanhTien: ct.ThanhTien,
+        TenPhuTung: ct.PhuTung.TenPhuTung,
+        DonGia: ct.PhuTung.DonGia,
+        GiaTienCong: ct.TienCong.GiaTienCong,
+      })),
+    };
   });
 }
