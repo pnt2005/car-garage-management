@@ -159,6 +159,20 @@ export async function lapPhieuSuaChua(data) {
         },
       },
     });
+    // ------------------------------------------
+    // 4.5. CỘNG NỢ CHO CHỦ XE
+    // ------------------------------------------
+    await tx.cHUXE.update({
+      where: {
+        MaChuXe: tiepNhan.MaChuXe,
+      },
+      data: {
+        TienNo: {
+          increment: tongThanhTien,
+        },
+      },
+    });
+
 
     // ------------------------------------------
     // 5. TRẢ VỀ PHIẾU VỪA TẠO
